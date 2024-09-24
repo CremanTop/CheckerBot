@@ -12,7 +12,9 @@ bot = config.bot
 dp = config.dp
 
 games: list[Game] = [game := Game(1906460474, 1906460474)]
-#2130716911
+
+
+# 2130716911
 
 @dp.message(Command(commands=['start']))
 async def start_command(message: Message):
@@ -50,6 +52,8 @@ async def callback(callback: CallbackQuery):
     else:
         await callback.answer()
 
+
 if __name__ == '__main__':
     # dp.middleware.setup(ThrottlingMiddleware(1))
+    print('Бот запущен')
     dp.run_polling(bot, skip_updates=False)

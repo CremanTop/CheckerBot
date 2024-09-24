@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Final, Optional
 
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardButton
 
 alp: Final[str] = 'abcdefgh'
 
@@ -24,8 +24,11 @@ class Cell:
         self.number: int = num
         self.state: Figure = figure
 
-    def __str__(self):
+    def get_id(self) -> str:
         return f'{self.letter}{self.number}'
+
+    def __str__(self):
+        return self.get_id()
 
 
 class Field:
@@ -69,14 +72,14 @@ class Field:
             u_line = []
             for cell in line:
 
-                button = InlineKeyboardButton(text=str(cell.state.value), callback_data=str(cell))
-                if str(cell) == choosen_cell:
+                button = InlineKeyboardButton(text=str(cell.state.value), callback_data=cell.get_id())
+                if cell.get_id() == choosen_cell:
                     if cell.state in (Figure.white, Figure.black):
-                        button = InlineKeyboardButton(text=str(Figure.choosen.value), callback_data=str(cell))
+                        button = InlineKeyboardButton(text=str(Figure.choosen.value), callback_data=cell.get_id())
                     elif cell.state in (Figure.white_queen, Figure.black_queen):
-                        button = InlineKeyboardButton(text=str(Figure.choosen_queen.value), callback_data=str(cell))
-                elif str(cell) == old_cell:
-                    button = InlineKeyboardButton(text=str(Figure.old_move.value), callback_data=str(cell))
+                        button = InlineKeyboardButton(text=str(Figure.choosen_queen.value), callback_data=cell.get_id())
+                elif cell.get_id() == old_cell:
+                    button = InlineKeyboardButton(text=str(Figure.old_move.value), callback_data=cell.get_id())
 
                 if i % 2 != 0:
                     u_line.append(button)

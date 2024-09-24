@@ -15,6 +15,7 @@ class Game:
         self.players: tuple[int, int] = (player1, player2)
         self.choosen_cell: Optional[str] = None
         self.old_cell: Optional[str] = None
+        self.one_cut: Optional[str] = None
         self.move: int = 0
 
     def moving(self) -> int:
@@ -29,16 +30,15 @@ class Game:
             return False  # не ваш ход
         return True
 
+    def get_cur_state(self) -> tuple[tuple, tuple]:
+        return (WHITE, BLACK) if self.move == 0 else (BLACK, WHITE)
+
     def click_handler(self, cell_id: str) -> tuple[bool, Optional[str]]:
         cell = self.field.get_cell(cell_id)
 
         match cell.state, self.move:
             case (Figure.black | Figure.black_queen, 0) | (Figure.white | Figure.white_queen, 1):  # в чужую
-                if self.choosen_cell is None:
-                    return False, None
-                else:
-                    self.choosen_cell = None
-                    return True, None
+                return False, None
             case (Figure.black | Figure.black_queen, 1) | (Figure.white | Figure.white_queen, 0):  # в свою
                 self.choosen_cell = cell_id
                 return True, None
@@ -47,12 +47,18 @@ class Game:
 
     def move_attempt(self, cell_id: str) -> tuple[bool, Optional[str]]:
 
-        def procces() -> None:
+        def procces(is_cut: bool) -> None:
             cell.state = choosen.state
             choosen.state = Figure.null
             self.old_cell = self.choosen_cell
-            self.choosen_cell = None
-            self.moving()
+
+            if self.can_cut_down_one(cell) and is_cut:
+                self.choosen_cell = cell.get_id()
+                self.one_cut = cell.get_id()
+            else:
+                self.choosen_cell = None
+                self.moving()
+                self.one_cut = None
 
             if cell.state is Figure.black and cell.number == 8:
                 cell.state = Figure.black_queen
@@ -66,44 +72,45 @@ class Game:
 
         choosen = self.field.get_cell(self.choosen_cell)
 
-        cut_down: bool = self.can_cut_down()
+        cut_down: bool = self.can_cut_down_all()
 
         if not cut_down:
             if ((choosen.state is Figure.white and cell.number == choosen.number - 1) or (choosen.state is Figure.black and cell.number == choosen.number + 1)) and abs(ord(cell.letter) - ord(choosen.letter)) == 1:  # обычный ход
-                procces()
+                procces(False)
                 return True, None
 
         else:
-            if abs(cell.number - choosen.number) == 2 and abs(ord(cell.letter) - ord(choosen.letter)) == 2:  # рубка
-                between = self.field.get_cell(f'{chr((ord(cell.letter) + ord(choosen.letter)) // 2)}{(cell.number + choosen.number) // 2}')
-                if (between.state in BLACK and choosen.state in WHITE) or (between.state in WHITE and choosen.state in BLACK):
-                    procces()
-                    between.state = Figure.null
-                    return True, None
-            return False, 'Вы должны рубить!'
+            if (self.one_cut is not None and choosen.get_id() == self.one_cut) or self.one_cut is None:
+                if abs(cell.number - choosen.number) == 2 and abs(ord(cell.letter) - ord(choosen.letter)) == 2:  # рубка
+                    between = self.field.get_cell(f'{chr((ord(cell.letter) + ord(choosen.letter)) // 2)}{(cell.number + choosen.number) // 2}')
+                    if between.state in self.get_cur_state()[1] and choosen.state in self.get_cur_state()[0]:
+                        between.state = Figure.null
+                        procces(True)
+                        return True, None
+                return False, 'Вы должны рубить!'
 
         return False, None
 
-    def can_cut_down(self) -> bool:
-        print(f'{self.move=}')
-        cur_state: tuple[tuple, tuple] = (WHITE, BLACK) if self.move == 0 else (BLACK, WHITE)
-        print(cur_state)
+    def can_cut_down_all(self) -> bool:
         cells = []
         for i in self.field.cells:
             cells += i
-        for cell in tuple(filter(lambda ce: ce.state in cur_state[0], cells)):
-            print(cell)
-            for neigh in ((self.field.get_cell(f'{chr(ord(cell.letter) - 1)}{cell.number - 1}'), self.field.get_cell(f'{chr(ord(cell.letter) - 2)}{cell.number - 2}')),
-                          (self.field.get_cell(f'{chr(ord(cell.letter) - 1)}{cell.number + 1}'), self.field.get_cell(f'{chr(ord(cell.letter) - 2)}{cell.number + 2}')),
-                          (self.field.get_cell(f'{chr(ord(cell.letter) + 1)}{cell.number + 1}'), self.field.get_cell(f'{chr(ord(cell.letter) + 2)}{cell.number + 2}')),
-                          (self.field.get_cell(f'{chr(ord(cell.letter) + 1)}{cell.number - 1}'), self.field.get_cell(f'{chr(ord(cell.letter) + 2)}{cell.number - 2}')),
-                          ):
-                if neigh[0] is None or neigh[1] is None:
-                    continue
-                if neigh[0].state in cur_state[1] and neigh[1].state is Figure.null:
-                    return True
+        for cell in tuple(filter(lambda ce: ce.state in self.get_cur_state()[0], cells)):
+            if self.can_cut_down_one(cell):
+                return True
         return False
 
+    def can_cut_down_one(self, cell: Cell) -> bool:
+        for neigh in ((self.field.get_cell(f'{chr(ord(cell.letter) - 1)}{cell.number - 1}'), self.field.get_cell(f'{chr(ord(cell.letter) - 2)}{cell.number - 2}')),
+                      (self.field.get_cell(f'{chr(ord(cell.letter) - 1)}{cell.number + 1}'), self.field.get_cell(f'{chr(ord(cell.letter) - 2)}{cell.number + 2}')),
+                      (self.field.get_cell(f'{chr(ord(cell.letter) + 1)}{cell.number + 1}'), self.field.get_cell(f'{chr(ord(cell.letter) + 2)}{cell.number + 2}')),
+                      (self.field.get_cell(f'{chr(ord(cell.letter) + 1)}{cell.number - 1}'), self.field.get_cell(f'{chr(ord(cell.letter) + 2)}{cell.number - 2}')),
+                      ):
+            if neigh[0] is None or neigh[1] is None:
+                continue
+            if neigh[0].state in self.get_cur_state()[1] and neigh[1].state is Figure.null:
+                return True
+        return False
 
 
 
