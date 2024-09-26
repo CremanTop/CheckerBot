@@ -73,9 +73,13 @@ class Game:
         choosen = self.field.get_cell(self.choosen_cell)
 
         cut_down: bool = self.can_cut_down_all()
+        queens_cat_down: bool = self.can_all_queen_cut_down()
 
-        if not cut_down:
+        if not cut_down and not queens_cat_down:
             if ((choosen.state is Figure.white and cell.number == choosen.number - 1) or (choosen.state is Figure.black and cell.number == choosen.number + 1)) and abs(ord(cell.letter) - ord(choosen.letter)) == 1:  # обычный ход
+                procces(False)
+                return True, None
+            elif choosen.state in (Figure.white_queen, Figure.black_queen) and abs(ord(cell.letter) - ord(choosen.letter)) == abs(cell.number - choosen.number) and all(i.state is Figure.null for i in (self.field.get_cell(f'{let}{num}') for let, num in zip((chr(j) for j in range(min(ord(cell.letter), ord(choosen.letter)) + 1, max(ord(cell.letter), ord(choosen.letter)))), range(min(cell.number, choosen.number) + 1, max(cell.number, choosen.number))))):
                 procces(False)
                 return True, None
 
@@ -110,6 +114,30 @@ class Game:
                 continue
             if neigh[0].state in self.get_cur_state()[1] and neigh[1].state is Figure.null:
                 return True
+        return False
+
+    def can_all_queen_cut_down(self) -> bool:
+        cells = []
+        for i in self.field.cells:
+            cells += i
+        for cell in tuple(filter(lambda ce: ce.state is self.get_cur_state()[0][1], cells)):
+            if self.can_queen_cut_down(cell):
+                return True
+        return False
+
+    def can_queen_cut_down(self, cell: Cell) -> bool:
+        directs = ((-1, -1),
+                   (-1,  1),
+                   ( 1,  1),
+                   ( 1, -1))
+        for di in directs:
+            for i in range(1, 9):
+                target = self.field.get_cell(f'{chr(ord(cell.letter) + di[0] * i)}{cell.number + di[1] * i}')
+                behind = self.field.get_cell(f'{chr(ord(cell.letter) + di[0] * (i + 1))}{cell.number + di[1] * (i + 1)}')
+                if target is None or behind is None:
+                    break
+                if target.state in self.get_cur_state()[1] and behind.state is Figure.null:
+                    return True
         return False
 
 

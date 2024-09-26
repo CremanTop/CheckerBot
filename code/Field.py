@@ -7,7 +7,7 @@ alp: Final[str] = 'abcdefgh'
 
 
 class Figure(Enum):
-    null = '◾'
+    null = '•'
     white = '⚪'
     black = '⚫'
     white_queen = '🤍'
