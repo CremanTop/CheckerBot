@@ -30,7 +30,7 @@ class Game:
             return False  # не ваш ход
         return True
 
-    def get_cur_state(self) -> tuple[tuple, tuple]:
+    def get_cur_state(self) -> tuple[tuple[Figure, Figure], tuple[Figure, Figure]]:
         return (WHITE, BLACK) if self.move == 0 else (BLACK, WHITE)
 
     def click_handler(self, cell_id: str) -> tuple[bool, Optional[str]]:
@@ -47,12 +47,12 @@ class Game:
 
     def move_attempt(self, cell_id: str) -> tuple[bool, Optional[str]]:
 
-        def procces(is_cut: bool) -> None:
+        def procces(is_cut: bool, queen: bool = False) -> None:
             cell.state = choosen.state
             choosen.state = Figure.null
             self.old_cell = self.choosen_cell
 
-            if self.can_cut_down_one(cell) and is_cut:
+            if (not queen and is_cut and self.can_cut_down_one(cell)) or (queen and is_cut and self.can_queen_cut_down(cell)):
                 self.choosen_cell = cell.get_id()
                 self.one_cut = cell.get_id()
             else:
@@ -79,18 +79,26 @@ class Game:
             if ((choosen.state is Figure.white and cell.number == choosen.number - 1) or (choosen.state is Figure.black and cell.number == choosen.number + 1)) and abs(ord(cell.letter) - ord(choosen.letter)) == 1:  # обычный ход
                 procces(False)
                 return True, None
-            elif choosen.state in (Figure.white_queen, Figure.black_queen) and abs(ord(cell.letter) - ord(choosen.letter)) == abs(cell.number - choosen.number) and all(i.state is Figure.null for i in (self.field.get_cell(f'{let}{num}') for let, num in zip((chr(j) for j in range(min(ord(cell.letter), ord(choosen.letter)) + 1, max(ord(cell.letter), ord(choosen.letter)))), range(min(cell.number, choosen.number) + 1, max(cell.number, choosen.number))))):
+            elif choosen.state in (Figure.white_queen, Figure.black_queen) and abs(ord(cell.letter) - ord(choosen.letter)) == abs(cell.number - choosen.number) and all(i.state is Figure.null for i in self.field.get_cells_between(cell, choosen)):
                 procces(False)
                 return True, None
 
         else:
             if (self.one_cut is not None and choosen.get_id() == self.one_cut) or self.one_cut is None:
-                if abs(cell.number - choosen.number) == 2 and abs(ord(cell.letter) - ord(choosen.letter)) == 2:  # рубка
-                    between = self.field.get_cell(f'{chr((ord(cell.letter) + ord(choosen.letter)) // 2)}{(cell.number + choosen.number) // 2}')
-                    if between.state in self.get_cur_state()[1] and choosen.state in self.get_cur_state()[0]:
-                        between.state = Figure.null
-                        procces(True)
+                if choosen.state is self.get_cur_state()[0][0]:
+                    if abs(cell.number - choosen.number) == 2 and abs(ord(cell.letter) - ord(choosen.letter)) == 2:  # рубка
+                        between = self.field.get_cell(f'{chr((ord(cell.letter) + ord(choosen.letter)) // 2)}{(cell.number + choosen.number) // 2}')
+                        if between.state in self.get_cur_state()[1]:
+                            between.state = Figure.null
+                            procces(True)
+                            return True, None
+                elif choosen.state is self.get_cur_state()[0][1]:
+                    if abs(ord(cell.letter) - ord(choosen.letter)) == abs(cell.number - choosen.number) and tuple(i.state.get_color() for i in self.field.get_cells_between(cell, choosen)).count(self.get_cur_state()[1][0].get_color()) == 1 and tuple(i.state.get_color() for i in self.field.get_cells_between(cell, choosen)).count(self.get_cur_state()[0][0].get_color()) == 0:
+                        for i in self.field.get_cells_between(cell, choosen):
+                            i.state = Figure.null
+                        procces(True, queen=True)
                         return True, None
+
                 return False, 'Вы должны рубить!'
 
         return False, None
@@ -135,6 +143,10 @@ class Game:
                 target = self.field.get_cell(f'{chr(ord(cell.letter) + di[0] * i)}{cell.number + di[1] * i}')
                 behind = self.field.get_cell(f'{chr(ord(cell.letter) + di[0] * (i + 1))}{cell.number + di[1] * (i + 1)}')
                 if target is None or behind is None:
+                    break
+                if target.state in self.get_cur_state()[0] or behind.state in self.get_cur_state()[0]:
+                    break
+                if target.state in self.get_cur_state()[1] and behind.state in self.get_cur_state()[1]:
                     break
                 if target.state in self.get_cur_state()[1] and behind.state is Figure.null:
                     return True

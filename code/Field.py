@@ -17,6 +17,15 @@ class Figure(Enum):
     choosen_queen = '❤'
     old_move = '📍'
 
+    def get_color(self) -> int:
+        match self:
+            case self.white | self.white_queen:
+                return 0
+            case self.black | self.black_queen:
+                return 1
+            case _:
+                return -1
+
 
 class Cell:
     def __init__(self, let: str, num: int, figure: Figure = Figure.null) -> None:
@@ -65,6 +74,21 @@ class Field:
             return None
 
         return self.cells[8 - num][alp.index(let) // 2]
+
+    def get_cells_between(self, first: Cell, second: Cell) -> tuple[Cell, ...]:
+        step1 = 1 if ord(first.letter) < ord(second.letter) else -1
+        step2 = 1 if first.number < second.number else -1
+        return tuple(self.get_cell(f'{let}{num}') for let, num in zip(
+            (chr(j) for j in
+                range(ord(first.letter) + step1, ord(second.letter), step1
+                    #min(ord(first.letter), ord(second.letter)) + 1,
+                    #max(ord(first.letter), ord(second.letter))
+        )),
+            range(first.number + step2, second.number, step2
+                    #min(first.number, second.number) + 1,
+                    #max(first.number, second.number)
+        ))
+            )
 
     def get_keyboard(self, choosen_cell: str = None, old_cell: str = None) -> list[list[InlineKeyboardButton]]:
         keyboard = []
