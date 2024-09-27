@@ -1,7 +1,8 @@
 from typing import Final
 
 from aiogram.filters import Command
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, InlineQuery, InlineQueryResultArticle, InputMessageContent, \
+    InputTextMessageContent
 
 from Config import Config
 from Game import Game
@@ -26,6 +27,13 @@ async def start_command(message: Message):
 # async def react(message: MessageReactionUpdated):
 #     await message.bot.send_message(message.chat.id, '444')
 
+# @dp.inline_query()
+# async def inline(callback: InlineQuery):
+#     await callback.answer([InlineQueryResultArticle(id='1', title='GGGG', input_message_content=InputTextMessageContent(message_text='AAAAA'))])
+#     callback.
+
+
+
 @dp.callback_query()
 async def callback(callback: CallbackQuery):
     if callback.data == 'null':
@@ -48,7 +56,11 @@ async def callback(callback: CallbackQuery):
         game.choosen_cell = None
 
     if edit:
-        await callback.message.edit_reply_markup(reply_markup=game.get_board())
+        if game.win != -1:
+            await callback.message.edit_text(f'Победа {"белых" if game.win == 0 else "чёрных"}!')
+            await callback.message.delete_reply_markup()
+        else:
+            await callback.message.edit_reply_markup(reply_markup=game.get_board())
     else:
         await callback.answer()
 
