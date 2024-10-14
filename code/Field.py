@@ -60,8 +60,9 @@ class Field:
             lines.append(line)
         self.cells = lines
 
-    def __init__(self):
+    def __init__(self, game_id: int) -> None:
         self.cells: list[list[Cell]] = None
+        self.id: Final[int] = game_id
         self.start_setup()
 
     def get_cell(self, cell_id: str) -> Optional[Cell]:
@@ -96,14 +97,14 @@ class Field:
             u_line = []
             for cell in line:
 
-                button = InlineKeyboardButton(text=str(cell.state.value), callback_data=cell.get_id())
+                button = InlineKeyboardButton(text=str(cell.state.value), callback_data=f'{self.id}_{cell.get_id()}')
                 if cell.get_id() == choosen_cell:
                     if cell.state in (Figure.white, Figure.black):
-                        button = InlineKeyboardButton(text=str(Figure.choosen.value), callback_data=cell.get_id())
+                        button = InlineKeyboardButton(text=str(Figure.choosen.value), callback_data=f'{self.id}_{cell.get_id()}')
                     elif cell.state in (Figure.white_queen, Figure.black_queen):
-                        button = InlineKeyboardButton(text=str(Figure.choosen_queen.value), callback_data=cell.get_id())
+                        button = InlineKeyboardButton(text=str(Figure.choosen_queen.value), callback_data=f'{self.id}_{cell.get_id()}')
                 elif cell.get_id() == old_cell:
-                    button = InlineKeyboardButton(text=str(Figure.old_move.value), callback_data=cell.get_id())
+                    button = InlineKeyboardButton(text=str(Figure.old_move.value), callback_data=f'{self.id}_{cell.get_id()}')
 
                 if i % 2 != 0:
                     u_line.append(button)
@@ -112,6 +113,3 @@ class Field:
                     u_line.append(button)
             keyboard.append(u_line)
         return keyboard
-
-
-Field()

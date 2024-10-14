@@ -2,6 +2,7 @@ from typing import Final, Optional
 
 from aiogram.types import InlineKeyboardMarkup
 
+from CheckerBot.code.Player import Player
 from Field import Field, Cell, Figure
 
 WHITE: Final[tuple[Figure, Figure]] = (Figure.white, Figure.white_queen)
@@ -9,14 +10,25 @@ BLACK: Final[tuple[Figure, Figure]] = (Figure.black, Figure.black_queen)
 
 
 class Game:
-    def __init__(self, player1: int, player2: int):
-        self.field: Final[Field] = Field()
-        self.players: tuple[int, int] = (player1, player2)
+    counter = 0
+
+    def __init__(self, player1: Player, player2: Player):
+        self.id: Final[int] = Game.counter
+        Game.counter += 1
+
+        self.field: Final[Field] = Field(self.id)
+        self.players: list[Player, Player] = [player1, player2]  # белые, чёрные
         self.choosen_cell: Optional[str] = None
         self.old_cell: Optional[str] = None
         self.one_cut: Optional[str] = None
         self.move: int = 0
         self.win: int = -1
+
+    def get_message(self) -> str:
+        player1: str = f'{self.players[0].name} {Figure.white.value}'
+        player2: str = f'{self.players[1].name} {Figure.black.value}'
+        return f'{player1} vs {player2} \n' \
+               f'Ход: {f"Белых{Figure.white.value}" if self.move == 0 else f"Чёрных{Figure.black.value}"}'
 
     def moving(self) -> int:
         self.move = (self.move + 1) % 2
@@ -30,7 +42,8 @@ class Game:
         return InlineKeyboardMarkup(inline_keyboard=self.field.get_keyboard(self.choosen_cell, self.old_cell))
 
     def check_click(self, player_id: int) -> bool:
-        if self.players.index(player_id) != self.move:
+        player = next(filter(lambda pl: pl.id == player_id, self.players))
+        if self.players.index(player) != self.move:
             return False  # не ваш ход
         return True
 

@@ -17,7 +17,7 @@ class Config:
 
     def __init__(self):
         env: Final[Env] = Env()
-        env.read_env()  # Методом read_env() читаем файл .env и загружаем из него переменные в окружение
+        env.read_env()
 
         self.BOT_TOKEN: Final[str] = '7398081871:AAGoPrSDjYFRv3pjE9WetNqnyzXFb-AfH8A' #env('BOT_TOKEN')
         #self.password: Final[str] = env('DEFAULT_PASSWORD')
