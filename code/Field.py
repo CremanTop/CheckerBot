@@ -1,7 +1,9 @@
 from enum import Enum
-from typing import Final, Optional
+from typing import Final, Optional, Literal
 
 from aiogram.types import InlineKeyboardButton
+
+from CheckerBot.code.Skins import SkinSet, SKINS
 
 alp: Final[str] = 'abcdefgh'
 
@@ -25,6 +27,17 @@ class Figure(Enum):
                 return 1
             case _:
                 return -1
+
+    def get_skin_type(self, choosen: bool) -> Literal['pawn', 'queen', 'choosen_pawn', 'choosen_queen']:
+        match self, choosen:
+            case self.white | self.black, False:
+                return 'pawn'
+            case self.white_queen | self.black_queen, False:
+                return 'queen'
+            case self.white | self.black, True:
+                return 'choosen_pawn'
+            case self.white_queen | self.black_queen, True:
+                return 'choosen_queen'
 
 
 class Cell:
@@ -60,9 +73,15 @@ class Field:
             lines.append(line)
         self.cells = lines
 
-    def __init__(self, game_id: int) -> None:
+    def __init__(self, game_id: int, white_skin: str = 'white', black_skin: str = 'black') -> None:
         self.cells: list[list[Cell]] = None
         self.id: Final[int] = game_id
+
+        self.white_skin: Final[SkinSet] = SKINS[white_skin]
+        if white_skin != black_skin:
+            self.black_skin: SkinSet = SKINS[black_skin]
+        else:
+            self.black_skin: SkinSet = SKINS['black']
         self.start_setup()
 
     def get_cell(self, cell_id: str) -> Optional[Cell]:
@@ -92,18 +111,19 @@ class Field:
             )
 
     def get_keyboard(self, choosen_cell: str = None, old_cell: str = None) -> list[list[InlineKeyboardButton]]:
+        def get_fig_skin(figure: Figure, choosen: bool) -> str:
+            skin_set: SkinSet = self.white_skin if figure.get_color() == 0 else self.black_skin
+            if figure.get_skin_type(choosen) is None:
+                return str(figure.value)
+            return skin_set[figure.get_skin_type(choosen)]
+
         keyboard = []
         for line, i in zip(self.cells, range(8)):
             u_line = []
             for cell in line:
 
-                button = InlineKeyboardButton(text=str(cell.state.value), callback_data=f'{self.id}_{cell.get_id()}')
-                if cell.get_id() == choosen_cell:
-                    if cell.state in (Figure.white, Figure.black):
-                        button = InlineKeyboardButton(text=str(Figure.choosen.value), callback_data=f'{self.id}_{cell.get_id()}')
-                    elif cell.state in (Figure.white_queen, Figure.black_queen):
-                        button = InlineKeyboardButton(text=str(Figure.choosen_queen.value), callback_data=f'{self.id}_{cell.get_id()}')
-                elif cell.get_id() == old_cell:
+                button = InlineKeyboardButton(text=get_fig_skin(cell.state, cell.get_id() == choosen_cell), callback_data=f'{self.id}_{cell.get_id()}')
+                if cell.get_id() == old_cell:
                     button = InlineKeyboardButton(text=str(Figure.old_move.value), callback_data=f'{self.id}_{cell.get_id()}')
 
                 if i % 2 != 0:

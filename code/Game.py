@@ -16,7 +16,7 @@ class Game:
         self.id: Final[int] = Game.counter
         Game.counter += 1
 
-        self.field: Final[Field] = Field(self.id)
+        self.field: Final[Field] = Field(self.id, white_skin='moon', black_skin='animal')
         self.players: list[Player, Player] = [player1, player2]  # белые, чёрные
         self.choosen_cell: Optional[str] = None
         self.old_cell: Optional[str] = None
@@ -159,11 +159,7 @@ class Game:
             opponent = self.get_cur_state()[1]
         if team is None:
             team = self.get_cur_state()[0]
-        directs = ((-1, -1),
-                   (-1, 1),
-                   (1, 1),
-                   (1, -1))
-        for di in directs:
+        for di in ((1, 1), (-1, 1), (1, -1), (-1, -1)):
             for i in range(1, 9):
                 target = self.field.get_cell(f'{chr(ord(cell.letter) + di[0] * i)}{cell.number + di[1] * i}')
                 behind = self.field.get_cell(f'{chr(ord(cell.letter) + di[0] * (i + 1))}{cell.number + di[1] * (i + 1)}')
