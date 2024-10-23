@@ -88,7 +88,7 @@ async def callback(callback: CallbackQuery):
 
     if edit:
         if game.win != -1:
-            await bot.edit_message_text(text=f'Победа {"белых" if game.win == 0 else "чёрных"}!', inline_message_id=callback.inline_message_id)
+            await bot.edit_message_text(text=f'Победа {game.field.white_skin["name"] if game.win == 0 else game.field.black_skin["name"]}!', inline_message_id=callback.inline_message_id)
         else:
             await bot.edit_message_text(text=game.get_message(), inline_message_id=callback.inline_message_id, reply_markup=game.get_board())
     else:

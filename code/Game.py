@@ -25,10 +25,10 @@ class Game:
         self.win: int = -1
 
     def get_message(self) -> str:
-        player1: str = f'{self.players[0].name} {Figure.white.value}'
-        player2: str = f'{self.players[1].name} {Figure.black.value}'
+        player1: str = f'{self.players[0].name} {self.field.white_skin["pawn"]}'
+        player2: str = f'{self.players[1].name} {self.field.black_skin["pawn"]}'
         return f'{player1} vs {player2} \n' \
-               f'Ход: {f"Белых{Figure.white.value}" if self.move == 0 else f"Чёрных{Figure.black.value}"}'
+               f'Ход: {self.field.white_skin["name"] if self.move == 0 else self.field.black_skin["name"]}'
 
     def moving(self) -> int:
         self.move = (self.move + 1) % 2
