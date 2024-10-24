@@ -73,7 +73,7 @@ class Field:
             lines.append(line)
         self.cells = lines
 
-    def __init__(self, game_id: int, white_skin: str = 'white', black_skin: str = 'black') -> None:
+    def __init__(self, game_id: int, white_skin: str = 'white', black_skin: str = 'black', setup_string: str = None) -> None:
         self.cells: list[list[Cell]] = None
         self.id: Final[int] = game_id
 
@@ -82,7 +82,11 @@ class Field:
             self.black_skin: SkinSet = SKINS[black_skin]
         else:
             self.black_skin: SkinSet = SKINS['black']
-        self.start_setup()
+
+        if setup_string is None:
+            self.start_setup()
+        else:
+            self.load_from_string(setup_string)
 
     def get_cell(self, cell_id: str) -> Optional[Cell]:
         let, num = cell_id[0], cell_id[1]
@@ -133,3 +137,50 @@ class Field:
                     u_line.append(button)
             keyboard.append(u_line)
         return keyboard
+
+    def get_string(self) -> str:
+        string = ''
+        for line in self.cells:
+            for cell in line:
+                match cell.state:
+                    case Figure.white:
+                        result = 'w'
+                    case Figure.black:
+                        result = 'b'
+                    case Figure.white_queen:
+                        result = 'W'
+                    case Figure.black_queen:
+                        result = 'B'
+                    case _:
+                        result = '0'
+                string += result
+            string += ','
+        return string[:-1]
+
+    def load_from_string(self, string: str):
+        num = 8
+        let = (('b', 'd', 'f', 'h'), ('a', 'c', 'e', 'g'))
+        lines = []
+        COUN = 0
+        for lo in string.split(','):
+            line = []
+            coun = 0
+            for ch in lo:
+                cell = Cell(let[COUN][coun], num)
+                coun += 1
+                match ch:
+                    case '0':
+                        cell.state = Figure.null
+                    case 'w':
+                        cell.state = Figure.white
+                    case 'W':
+                        cell.state = Figure.white_queen
+                    case 'b':
+                        cell.state = Figure.black
+                    case 'B':
+                        cell.state = Figure.black_queen
+                line.append(cell)
+            COUN = (COUN + 1) % 2
+            num -= 1
+            lines.append(line)
+        self.cells = lines

@@ -2,11 +2,16 @@ from typing import Final, Optional
 
 from aiogram.types import InlineKeyboardMarkup
 
+from CheckerBot.code.Config import Config
 from CheckerBot.code.Player import Player
 from Field import Field, Cell, Figure
 
 WHITE: Final[tuple[Figure, Figure]] = (Figure.white, Figure.white_queen)
 BLACK: Final[tuple[Figure, Figure]] = (Figure.black, Figure.black_queen)
+
+config: Final[Config] = Config.get()
+
+BotBd = config.Bot_db
 
 
 class Game:
@@ -28,13 +33,16 @@ class Game:
         player1: str = f'{self.players[0].name} {self.field.white_skin["pawn"]}'
         player2: str = f'{self.players[1].name} {self.field.black_skin["pawn"]}'
         return f'{player1} vs {player2} \n' \
-               f'Ход: {self.field.white_skin["name"] if self.move == 0 else self.field.black_skin["name"]}'
+               f'Ход: {self.field.white_skin["whose"] if self.move == 0 else self.field.black_skin["whose"]}'
 
     def moving(self) -> int:
         self.move = (self.move + 1) % 2
 
         if not self.can_move(self.move):
             self.win = (self.move + 1) % 2
+            with BotBd as bd:
+                if bd.game_exists(self.id):
+                    bd.del_game(self.id)
 
         return self.move
 

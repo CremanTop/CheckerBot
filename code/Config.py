@@ -9,7 +9,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 from environs import Env
 
-#from libs.db import BotDB
+from db import BotDB
 
 
 class Config:
@@ -25,7 +25,7 @@ class Config:
         self.bot: Final[Bot] = Bot(self.BOT_TOKEN)
         self.storage: MemoryStorage = MemoryStorage()
         self.dp: Final[Dispatcher] = Dispatcher(storage=self.storage)
-        #self.Bot_db: Final[BotDB] = BotDB('database')
+        self.Bot_db: Final[BotDB] = BotDB('../files/bot_bd')
         self.logger: Logger = Logger(True)
 
         self.TEST_MODE: bool = True

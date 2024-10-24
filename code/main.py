@@ -11,6 +11,7 @@ config: Final[Config] = Config.get()
 
 bot = config.bot
 dp = config.dp
+BotDB = config.Bot_db
 
 games: list[Game] = []
 game0 = Game(Player(0, '???'), Player(1, '???'))
@@ -25,6 +26,11 @@ async def get_game(callback, game_id: int) -> Optional[Game]:
     return game
 
 
+def player_init(user_id: int):
+    with BotDB as db:
+        if not db.user_exists(user_id):
+            db.add_user(user_id, 0)
+
 # 2130716911 я
 # 802878496 Макс
 # 1906460474 Богдан
@@ -32,6 +38,7 @@ async def get_game(callback, game_id: int) -> Optional[Game]:
 
 @dp.message(Command(commands=['start']))
 async def start_command(message: Message):
+    player_init(message.from_user.id)
     print(message.from_user.id)
     #await message.answer(game.get_message(), reply_markup=game.get_board())
 
@@ -43,6 +50,7 @@ async def start_command(message: Message):
 
 @dp.inline_query()
 async def inline(callback: InlineQuery):
+    player_init(callback.from_user.id)
     await callback.answer([
         InlineQueryResultArticle(id='1',
                                  title='Доска игровая будет',
@@ -53,6 +61,8 @@ async def inline(callback: InlineQuery):
 
 @dp.callback_query()
 async def callback(callback: CallbackQuery):
+    player_init(callback.from_user.id)
+
     if callback.data == 'null':
         await callback.answer()
         return
@@ -88,7 +98,7 @@ async def callback(callback: CallbackQuery):
 
     if edit:
         if game.win != -1:
-            await bot.edit_message_text(text=f'Победа {game.field.white_skin["name"] if game.win == 0 else game.field.black_skin["name"]}!', inline_message_id=callback.inline_message_id)
+            await bot.edit_message_text(text=f'Победа {game.field.white_skin["whose"] if game.win == 0 else game.field.black_skin["whose"]}!', inline_message_id=callback.inline_message_id)
         else:
             await bot.edit_message_text(text=game.get_message(), inline_message_id=callback.inline_message_id, reply_markup=game.get_board())
     else:
