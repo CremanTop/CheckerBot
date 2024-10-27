@@ -1,32 +1,10 @@
-from dataclasses import dataclass
 from typing import Final
 
+from CheckerBot.code.Achievement import achievements, get_achieve
 from CheckerBot.code.Config import Config
 
 config: Final[Config] = Config.get()
 BotBd = config.Bot_db
-
-
-@dataclass
-class Achievement:
-    id: str
-    name: str
-    descript: str
-    secret: bool
-
-
-achievements: tuple[Achievement, ...] = (
-    Achievement('animal', '', 'Сделайте что-то', False),
-    Achievement('moon', '', '', False),
-    Achievement('food', '', '', False),
-    Achievement('rain', '', '', False),
-    Achievement('rock', '', '', False),
-    Achievement('insight', '', '', False),
-    Achievement('tool', '', '', False),
-    Achievement('key', '', '', False),
-    Achievement('feet', '', '', False),
-    Achievement('research', '', '', False),
-)
 
 
 class Player:
@@ -49,7 +27,7 @@ class Player:
         return result
 
     def achieve_complete(self, a_id: str):
-        achieve = next(filter(lambda ach: ach.id == a_id, achievements), None)
+        achieve = get_achieve(a_id)
         if achieve is None:
             return
 

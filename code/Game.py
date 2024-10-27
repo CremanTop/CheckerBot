@@ -2,6 +2,7 @@ from typing import Final, Optional
 
 from aiogram.types import InlineKeyboardMarkup
 
+from CheckerBot.code.Achievement import AchGameCounter
 from CheckerBot.code.Config import Config
 from CheckerBot.code.Player import Player
 from Field import Field, Cell, Figure
@@ -28,6 +29,7 @@ class Game:
         self.one_cut: Optional[str] = None
         self.move: int = 0
         self.win: int = -1
+        self.ach_counter: AchGameCounter = AchGameCounter()
 
     def get_message(self) -> str:
         player1: str = f'{self.players[0].name} {self.field.white_skin["pawn"]}'
@@ -35,7 +37,8 @@ class Game:
         return f'{player1} vs {player2} \n' \
                f'Ход: {self.field.white_skin["whose"] if self.move == 0 else self.field.black_skin["whose"]}'
 
-    def moving(self) -> int:
+    def moving(self) -> list[str]:
+        result = self.ach_counter.move(self.move)
         self.move = (self.move + 1) % 2
 
         if not self.can_move(self.move):
@@ -44,7 +47,7 @@ class Game:
                 if bd.game_exists(self.id):
                     bd.del_game(self.id)
 
-        return self.move
+        return result
 
     def get_board(self) -> InlineKeyboardMarkup:
         return InlineKeyboardMarkup(inline_keyboard=self.field.get_keyboard(self.choosen_cell, self.old_cell))
@@ -58,7 +61,7 @@ class Game:
     def get_cur_state(self) -> tuple[tuple[Figure, Figure], tuple[Figure, Figure]]:
         return (WHITE, BLACK) if self.move == 0 else (BLACK, WHITE)
 
-    def click_handler(self, cell_id: str) -> tuple[bool, Optional[str]]:
+    def click_handler(self, cell_id: str) -> tuple[bool, Optional[str | list[str]]]:
         cell = self.field.get_cell(cell_id)
 
         match cell.state, self.move:
@@ -70,27 +73,34 @@ class Game:
             case Figure.null, 0 | 1:  # в пустую
                 return self.move_attempt(cell_id)
 
-    def move_attempt(self, cell_id: str) -> tuple[bool, Optional[str]]:
+    def move_attempt(self, cell_id: str) -> tuple[bool, Optional[str | list[str]]]:
 
-        def procces(is_cut: bool, queen: bool = False) -> tuple[bool, Optional[str]]:
+        def procces(is_cut: bool, queen: bool = False) -> tuple[bool, list[str]]:
             cell.state = choosen.state
             choosen.state = Figure.null
             self.old_cell = self.choosen_cell
+
+            achieves = []
+
+            if is_cut:
+                self.ach_counter.eaten_counter += 1
 
             if (not queen and is_cut and self.can_cut_down_one(cell)) or (queen and is_cut and self.can_queen_cut_down(cell)):
                 self.choosen_cell = cell.get_id()
                 self.one_cut = cell.get_id()
             else:
                 self.choosen_cell = None
-                self.moving()
+                achieves = self.moving()
                 self.one_cut = None
 
             if cell.state is Figure.black and cell.number == 8:
                 cell.state = Figure.black_queen
+                self.ach_counter.counter_black_queen += 1
             elif cell.state is Figure.white and cell.number == 1:
                 cell.state = Figure.white_queen
+                self.ach_counter.counter_white_queen += 1
 
-            return True, None
+            return True, achieves
 
         cell = self.field.get_cell(cell_id)
 
@@ -117,8 +127,10 @@ class Game:
                             between.state = Figure.null
                             return procces(True)
                 elif choosen.state is self.get_cur_state()[0][1]:
-                    if abs(ord(cell.letter) - ord(choosen.letter)) == abs(cell.number - choosen.number) and tuple(i.state.get_color() for i in self.field.get_cells_between(cell, choosen)).count(self.get_cur_state()[1][0].get_color()) == 1 and tuple(i.state.get_color() for i in self.field.get_cells_between(cell, choosen)).count(self.get_cur_state()[0][0].get_color()) == 0:
-                        for i in self.field.get_cells_between(cell, choosen):
+                    cell_between = self.field.get_cells_between(cell, choosen)
+                    count_color = lambda color: tuple(i.state.get_color() for i in cell_between).count(self.get_cur_state()[color][0].get_color())
+                    if abs(ord(cell.letter) - ord(choosen.letter)) == abs(cell.number - choosen.number) and count_color(1) == 1 and count_color(0) == 0:
+                        for i in cell_between:
                             i.state = Figure.null
                         return procces(True, queen=True)
 

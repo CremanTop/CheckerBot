@@ -1,9 +1,12 @@
+import asyncio
 from typing import Final, Optional
 
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery, InlineQuery, InlineQueryResultArticle, InputTextMessageContent
 
+from CheckerBot.code.Achievement import get_achieve, Achievement
 from CheckerBot.code.Player import Player
+from CheckerBot.code.Skins import SkinSet, SKINS
 from Config import Config
 from Game import Game
 
@@ -26,14 +29,35 @@ async def get_game(callback, game_id: int) -> Optional[Game]:
     return game
 
 
+def get_achievement_message(achieves: list[str]) -> str:
+    result: str = f'Получен{"о" if len(achieves) == 1 else "ы"} достижени{"е" if len(achieves) == 1 else "я"}!\n'
+    for ach_id in achieves:
+        achieve: Achievement = get_achieve(ach_id)
+        skin: SkinSet = SKINS[achieve.id]
+        result += f'{achieve.name}{skin["emoji"]}: {achieve.descript}\n\n'
+
+    return result[:-4]
+
+
 def player_init(user_id: int):
     with BotDB as db:
         if not db.user_exists(user_id):
             db.add_user(user_id, 0)
 
-# 2130716911 я
-# 802878496 Макс
-# 1906460474 Богдан
+
+async def achieve_handler(callback: CallbackQuery, player: Player, achi_s: list[str], only: bool) -> None:
+    achi_s = list(set(achi_s) - set(player.get_skins_unlocked()))
+    if len(achi_s) == 0:
+        return
+
+    text = get_achievement_message(achi_s)
+
+    for res in achi_s:
+        player.achieve_complete(res)
+
+    if only:
+        await callback.answer(text)
+    await bot.send_message(player.id, text=text)
 
 
 @dp.message(Command(commands=['start']))
@@ -90,8 +114,14 @@ async def callback(callback: CallbackQuery):
         result = game.click_handler(cell_id)
         edit = result[0]
 
-        if result[1] is not None:
-            await callback.answer(result[1])
+        match result[1]:
+            case str() as mes:
+                await callback.answer(mes)
+            case list() as achi_s:
+                player = game.players[0] if game.players[0].id == callback.from_user.id else game.players[1]
+                await achieve_handler(callback, player, achi_s, True)
+            case _:
+                pass
 
     else:
         game.choosen_cell = None
@@ -99,6 +129,12 @@ async def callback(callback: CallbackQuery):
     if edit:
         if game.win != -1:
             await bot.edit_message_text(text=f'Победа {game.field.white_skin["whose"] if game.win == 0 else game.field.black_skin["whose"]}!', inline_message_id=callback.inline_message_id)
+
+            async with asyncio.TaskGroup() as tg:
+                for i in (0, 1):
+                    results = game.ach_counter.end_game(i, i == game.win)
+                    player = game.players[i]
+                    tg.create_task(achieve_handler(callback, player, results, False))
         else:
             await bot.edit_message_text(text=game.get_message(), inline_message_id=callback.inline_message_id, reply_markup=game.get_board())
     else:
