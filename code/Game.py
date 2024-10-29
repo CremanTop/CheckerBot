@@ -22,7 +22,10 @@ class Game:
         self.id: Final[int] = Game.counter
         Game.counter += 1
 
-        self.field: Final[Field] = Field(self.id, white_skin='moon', black_skin='animal')
+        ws = player1.get_skin() if player1.get_skin() is not None else 'white'
+        bs = player2.get_skin() if player2.get_skin() is not None else 'black'
+
+        self.field: Final[Field] = Field(self.id, white_skin=ws, black_skin=bs)
         self.players: list[Player, Player] = [player1, player2]  # белые, чёрные
         self.choosen_cell: Optional[str] = None
         self.old_cell: Optional[str] = None
@@ -41,7 +44,7 @@ class Game:
         result = self.ach_counter.move(self.move)
         self.move = (self.move + 1) % 2
 
-        if not self.can_move(self.move):
+        if not self.can_move(self.move)[0]:
             self.win = (self.move + 1) % 2
             with BotBd as bd:
                 if bd.game_exists(self.id):
@@ -75,12 +78,12 @@ class Game:
 
     def move_attempt(self, cell_id: str) -> tuple[bool, Optional[str | list[str]]]:
 
-        def procces(is_cut: bool, queen: bool = False) -> tuple[bool, list[str]]:
+        def procces(is_cut: bool, queen: bool = False, *dopresult: str) -> tuple[bool, list[str]]:
             cell.state = choosen.state
             choosen.state = Figure.null
             self.old_cell = self.choosen_cell
 
-            achieves = []
+            achieves = [*dopresult]
 
             if is_cut:
                 self.ach_counter.eaten_counter += 1
@@ -90,15 +93,20 @@ class Game:
                 self.one_cut = cell.get_id()
             else:
                 self.choosen_cell = None
-                achieves = self.moving()
+                achieves += self.moving()
                 self.one_cut = None
 
             if cell.state is Figure.black and cell.number == 8:
                 cell.state = Figure.black_queen
                 self.ach_counter.counter_black_queen += 1
+                if self.ach_counter.move_counter // 1 <= 10:
+                    achieves.append('feet')
+
             elif cell.state is Figure.white and cell.number == 1:
                 cell.state = Figure.white_queen
                 self.ach_counter.counter_white_queen += 1
+                if self.ach_counter.move_counter // 1 <= 10:
+                    achieves.append('feet')
 
             return True, achieves
 
@@ -124,8 +132,12 @@ class Game:
                     if abs(cell.number - choosen.number) == 2 and abs(ord(cell.letter) - ord(choosen.letter)) == 2:  # рубка
                         between = self.field.get_cell(f'{chr((ord(cell.letter) + ord(choosen.letter)) // 2)}{(cell.number + choosen.number) // 2}')
                         if between.state in self.get_cur_state()[1]:
-                            between.state = Figure.null
-                            return procces(True)
+                            if between.state is self.get_cur_state()[1][1]:
+                                between.state = Figure.null
+                                return procces(True, False, 'insight')
+                            else:
+                                between.state = Figure.null
+                                return procces(True)
                 elif choosen.state is self.get_cur_state()[0][1]:
                     cell_between = self.field.get_cells_between(cell, choosen)
                     count_color = lambda color: tuple(i.state.get_color() for i in cell_between).count(self.get_cur_state()[color][0].get_color())
@@ -193,25 +205,27 @@ class Game:
                     return True
         return False
 
-    def can_move(self, color: int) -> bool:
-        cells = []
+    def can_move(self, color: int) -> tuple[bool, Optional[bool]]:
+        cells: list[Cell] = []
+        is_have_figures: bool = False
         for i in self.field.cells:
             cells += i
         for cell in tuple(filter(lambda c: c.state.get_color() == color, cells)):
+            is_have_figures = True
             match cell.state:
                 case Figure.white | Figure.black:
                     if self.can_cut_down_one(cell, opponent=WHITE if color == 1 else BLACK):
-                        return True
+                        return True, None
                     one = self.field.get_cell(f'{chr(ord(cell.letter) - 1)}{cell.number + (1 if color == 1 else -1)}')
                     two = self.field.get_cell(f'{chr(ord(cell.letter) + 1)}{cell.number + (1 if color == 1 else -1)}')
                     if (one is not None and one.state is Figure.null) or (two is not None and two.state is Figure.null):
-                        return True
+                        return True, None
 
                 case Figure.white_queen | Figure.black_queen:
                     if self.can_queen_cut_down(cell, opponent=WHITE if color == 1 else BLACK, team=WHITE if color == 0 else BLACK):
-                        return True
+                        return True, None
                     for di in ((1, 1), (-1, 1), (1, -1), (-1, -1)):
                         target = self.field.get_cell(f'{chr(ord(cell.letter) + di[0])}{cell.number + di[1]}')
                         if target is not None and target.state is Figure.null:
-                            return True
-        return False
+                            return True, None
+        return False, is_have_figures

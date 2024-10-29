@@ -1,5 +1,6 @@
 import sqlite3
 from sqlite3 import Connection, Cursor
+from typing import Optional
 
 
 class BotDB:
@@ -40,6 +41,23 @@ class BotDB:
 
     def set_skins(self, user_is: int, skins: int) -> None:
         self.__cursor.execute("UPDATE `users` SET `skins_unlocked` = ? WHERE `id` = ?", (skins, user_is))
+
+    def get_choosen_skin(self, user_id: int) -> Optional[str]:
+        result: Cursor = self.__cursor.execute("SELECT `choosen_skin` FROM `users` WHERE `id` = ?", (user_id,))
+        if result.fetchone() is None:
+            return None
+        return result.fetchone()[0]
+
+    def get_wins(self, user_id: int) -> int:
+        result: Cursor = self.__cursor.execute("SELECT `win_count` FROM `users` WHERE `id` = ?", (user_id,))
+        return result.fetchone()[0]
+
+    def win_increment(self, user_id: int) -> None:
+        wins: int = self.get_wins(user_id) + 1
+        self.__cursor.execute("UPDATE `users` SET `win_count` = ? WHERE `id` = ?", (wins, user_id))
+
+    def set_choosen_skin(self, user_id: int, skin: str) -> None:
+        self.__cursor.execute("UPDATE `users` SET `choosen_skin` = ? WHERE `id` = ?", (skin, user_id))
 
     def add_game(self, game_id: int, player1: int, player2: int, move: int, figures: str) -> None:
         self.__cursor.execute("REPLACE INTO `games` (`id`, `player1`, `player2`, `move`, `figures`) VALUES (?, ?, ?, ?, ?)", (game_id, player1, player2, move, figures))

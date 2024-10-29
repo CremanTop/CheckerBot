@@ -36,7 +36,7 @@ def get_achievement_message(achieves: list[str]) -> str:
         skin: SkinSet = SKINS[achieve.id]
         result += f'{achieve.name}{skin["emoji"]}: {achieve.descript}\n\n'
 
-    return result[:-4]
+    return result[:-2]
 
 
 def player_init(user_id: int):
@@ -132,9 +132,23 @@ async def callback(callback: CallbackQuery):
 
             async with asyncio.TaskGroup() as tg:
                 for i in (0, 1):
-                    results = game.ach_counter.end_game(i, i == game.win)
-                    player = game.players[i]
-                    tg.create_task(achieve_handler(callback, player, results, False))
+                    results: list[str] = []
+                    player_i = game.players[i]
+                    opponent = game.players[(i + 1) % 2]
+
+                    have_figure_opponent: bool = False
+                    if i == game.win:
+                        _, have_figure_opponent = game.can_move((i + 1) % 2)
+                        player_i.win_increment()
+                        if player_i.get_wins() >= 3:
+                            results.append('moon')
+
+                    results += game.ach_counter.end_game(i, i == game.win, have_figure_opponent=have_figure_opponent)
+                    with BotDB as bbd:
+                        if opponent.id in [admin[0] for admin in bbd.get_users()[:2]]:
+                            results.append('research')
+
+                    tg.create_task(achieve_handler(callback, player_i, results, False))
         else:
             await bot.edit_message_text(text=game.get_message(), inline_message_id=callback.inline_message_id, reply_markup=game.get_board())
     else:
@@ -144,4 +158,9 @@ async def callback(callback: CallbackQuery):
 if __name__ == '__main__':
     # dp.middleware.setup(ThrottlingMiddleware(1))
     print('Бот запущен')
+    with BotDB as bd:
+        for user in bd.get_users():
+            print(user)
+            player = Player(user[0], 're')
+            print(player.get_skins_unlocked())
     dp.run_polling(bot, skip_updates=False)

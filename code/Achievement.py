@@ -12,15 +12,15 @@ class Achievement:
 
 achievements: Final[tuple[Achievement, ...]] = (
     Achievement('animal', 'Геноцид', 'Съешьте не менее трёх фигур за ход.', False),  # ok
-    Achievement('moon', 'Троекратное "Ура"', 'Выиграйте три раза.', False),
-    Achievement('food', 'Званый ужин', 'Съешьте фигуры противника 5 ходов подряд.', False),  # ok
+    Achievement('moon', 'Троекратное "Ура"', 'Выиграйте три раза.', False),  # okay
+    Achievement('food', 'Званый ужин', 'Съешьте фигуры противника 3 хода подряд.', False),  # ok
     Achievement('rain', 'Двоевластие', 'Создайте не менее двух дамок за игру.', False),  # ok
     Achievement('rock', 'Паритет', 'Сыграйте в ничью три раза.', False),
-    Achievement('insight', 'Чем больше шкаф', 'Съешьте дамку пешкой.', False),
+    Achievement('insight', 'Чем больше шкаф', 'Съешьте дамку пешкой.', False),  # okay
     Achievement('tool', 'Крестьянская революция', 'Выиграйте, не создавая дамок за игру.', False),  # ok
-    Achievement('key', 'Разделяй и властвуй', 'Выиграйте, не оставив противнику ходов.', False),
-    Achievement('feet', 'Карьерный рост', 'Создайте дамку не позже десятого хода.', False),
-    Achievement('research', 'Здравствуй, Нео', 'Сыграйте с создателем.', True),
+    Achievement('key', 'Разделяй и властвуй', 'Выиграйте, не оставив противнику ходов.', False),  # okay
+    Achievement('feet', 'Карьерный рост', 'Создайте дамку не позже десятого хода.', False),  # okay
+    Achievement('research', 'Здравствуй, Нео', 'Сыграйте с создателем.', True),  # okay
 )
 
 
@@ -41,14 +41,14 @@ class AchGameCounter:
                 self.counter_moves_when_white_chopping = 0
             else:
                 self.counter_moves_when_white_chopping += 1
-                if self.counter_moves_when_white_chopping >= 5:
+                if self.counter_moves_when_white_chopping >= 3:
                     result.append('food')
         else:
             if self.eaten_counter == 0:
                 self.counter_moves_when_black_chopping = 0
             else:
                 self.counter_moves_when_black_chopping += 1
-                if self.counter_moves_when_black_chopping >= 5:
+                if self.counter_moves_when_black_chopping >= 3:
                     result.append('food')
 
         if self.eaten_counter >= 3:
@@ -59,7 +59,7 @@ class AchGameCounter:
 
         return result
 
-    def end_game(self, color: int, win: bool) -> list[str]:
+    def end_game(self, color: int, win: bool, have_figure_opponent: bool = False) -> list[str]:
         result: list[str] = []
         if (color == 0 and self.counter_white_queen >= 2) or (color == 1 and self.counter_black_queen >= 2):
             result.append('rain')
@@ -67,6 +67,8 @@ class AchGameCounter:
         if win:
             if (color == 0 and self.counter_white_queen == 0) or (color == 1 and self.counter_black_queen == 0):
                 result.append('tool')
+            if have_figure_opponent:
+                result.append('key')
 
         return result
 

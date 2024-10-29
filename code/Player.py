@@ -1,4 +1,4 @@
-from typing import Final
+from typing import Final, Optional
 
 from CheckerBot.code.Achievement import achievements, get_achieve
 from CheckerBot.code.Config import Config
@@ -16,6 +16,24 @@ class Player:
         with BotBd as bd:
             num: int = bd.get_skins(self.id)
         return bin(num)[2:].zfill(10)  # получаем двоичку из бд '00110'
+
+    def get_skin(self) -> Optional[str]:
+        with BotBd as bd:
+            skin: str = bd.get_choosen_skin(self.id)
+        return skin
+
+    def set_skin(self, skin: Optional[str]) -> None:
+        with BotBd as bd:
+            bd.set_choosen_skin(self.id, skin)
+
+    def get_wins(self) -> int:
+        with BotBd as bd:
+            win: int = bd.get_wins(self.id)
+        return win
+
+    def win_increment(self) -> None:
+        with BotBd as bd:
+            bd.win_increment(self.id)
 
     def get_skins_unlocked(self) -> list[str]:
         bin01: str = self.__get_bin()
