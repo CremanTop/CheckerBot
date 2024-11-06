@@ -73,15 +73,19 @@ class Field:
             lines.append(line)
         self.cells = lines
 
+    def skin_update(self, black_skin: str = 'black'):
+        if self.white_skin is not SKINS[black_skin]:
+            self.black_skin: SkinSet = SKINS[black_skin]
+        else:
+            self.black_skin: SkinSet = SKINS['black']
+
     def __init__(self, game_id: int, white_skin: str = 'white', black_skin: str = 'black', setup_string: str = None) -> None:
         self.cells: list[list[Cell]] = None
         self.id: Final[int] = game_id
 
         self.white_skin: Final[SkinSet] = SKINS[white_skin]
-        if white_skin != black_skin:
-            self.black_skin: SkinSet = SKINS[black_skin]
-        else:
-            self.black_skin: SkinSet = SKINS['black']
+        self.black_skin = None
+        self.skin_update(black_skin)
 
         if setup_string is None:
             self.start_setup()
@@ -103,16 +107,10 @@ class Field:
         step1 = 1 if ord(first.letter) < ord(second.letter) else -1
         step2 = 1 if first.number < second.number else -1
         return tuple(self.get_cell(f'{let}{num}') for let, num in zip(
-            (chr(j) for j in
-                range(ord(first.letter) + step1, ord(second.letter), step1
-                    #min(ord(first.letter), ord(second.letter)) + 1,
-                    #max(ord(first.letter), ord(second.letter))
-        )),
-            range(first.number + step2, second.number, step2
-                    #min(first.number, second.number) + 1,
-                    #max(first.number, second.number)
-        ))
+            (chr(j) for j in range(ord(first.letter) + step1, ord(second.letter), step1)),
+            range(first.number + step2, second.number, step2)
             )
+        )
 
     def get_keyboard(self, choosen_cell: str = None, old_cell: str = None) -> list[list[InlineKeyboardButton]]:
         def get_fig_skin(figure: Figure, choosen: bool) -> str:
@@ -136,6 +134,7 @@ class Field:
                 if i % 2 == 0:
                     u_line.append(button)
             keyboard.append(u_line)
+        keyboard.append([InlineKeyboardButton(text='Сдаться', callback_data=f'{self.id}_surrender'), InlineKeyboardButton(text='Предложить ничью', callback_data=f'{self.id}_draw')])
         return keyboard
 
     def get_string(self) -> str:

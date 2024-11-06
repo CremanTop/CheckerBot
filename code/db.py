@@ -43,10 +43,11 @@ class BotDB:
         self.__cursor.execute("UPDATE `users` SET `skins_unlocked` = ? WHERE `id` = ?", (skins, user_is))
 
     def get_choosen_skin(self, user_id: int) -> Optional[str]:
-        result: Cursor = self.__cursor.execute("SELECT `choosen_skin` FROM `users` WHERE `id` = ?", (user_id,))
-        if result.fetchone() is None:
+        result = self.__cursor.execute("SELECT `choosen_skin` FROM `users` WHERE `id` = ?", (user_id,))
+        result = result.fetchone()
+        if result is None:
             return None
-        return result.fetchone()[0]
+        return result[0]
 
     def get_wins(self, user_id: int) -> int:
         result: Cursor = self.__cursor.execute("SELECT `win_count` FROM `users` WHERE `id` = ?", (user_id,))

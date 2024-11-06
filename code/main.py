@@ -2,9 +2,10 @@ import asyncio
 from typing import Final, Optional
 
 from aiogram.filters import Command
-from aiogram.types import Message, CallbackQuery, InlineQuery, InlineQueryResultArticle, InputTextMessageContent
+from aiogram.types import Message, CallbackQuery, InlineQuery, InlineQueryResultArticle, InputTextMessageContent, \
+    InlineKeyboardButton, InlineKeyboardMarkup
 
-from CheckerBot.code.Achievement import get_achieve, Achievement
+from CheckerBot.code.Achievement import get_achieve, Achievement, achievements
 from CheckerBot.code.Player import Player
 from CheckerBot.code.Skins import SkinSet, SKINS
 from Config import Config
@@ -67,6 +68,39 @@ async def start_command(message: Message):
     #await message.answer(game.get_message(), reply_markup=game.get_board())
 
 
+@dp.message(Command(commands=['skin']))
+async def skin_command(message: Message):
+    player_init(message.from_user.id)
+
+    player_this: Player = Player(message.from_user.id, 'Name')
+    skins_unlocked: list[str] = player_this.get_skins_unlocked()
+    result: list[str] = []
+    buttons: list[list[InlineKeyboardButton]] = []
+    i = 1
+    for ach in achievements:
+        string: str = f'{i}) '
+        lock: str = '✅' if ach.id in skins_unlocked else '❌'
+        if ach.secret and ach.id not in skins_unlocked:
+            string += '???'
+        else:
+            string += f'{ach.name}: {ach.descript[:-1]}'
+
+        if ach.id == 'moon':
+            string += f' ({player_this.get_wins()}/3)'
+
+        string += f' - {lock}'
+        result.append(string)
+
+        if ach.id in skins_unlocked:
+            skin = SKINS[ach.id]
+            buttons.append([InlineKeyboardButton(text=f'{i}) {skin["name"]}', callback_data=f'skin_{ach.id}')])
+
+        i += 1
+    rejoin = '\n'.join(result)
+
+    await message.answer(text=f'Вы можете получать новые скины, выполняя достижения! \n\nСписок достижений:\n{rejoin}', reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+
+
 # @dp.message_reaction()
 # async def react(message: MessageReactionUpdated):
 #     await message.bot.send_message(message.chat.id, '444')
@@ -94,6 +128,11 @@ async def callback(callback: CallbackQuery):
     board_id = callback.data[:callback.data.index('_')]
     cell_id = callback.data[callback.data.index('_') + 1:]
 
+    if board_id == 'skin':
+        Player(callback.from_user.id, callback.from_user.first_name).set_skin(cell_id)
+        await bot.answer_callback_query(callback.id, text=f'Вы выбрали набор скинов\n{SKINS[cell_id]["name"]}', show_alert=True)
+        return
+
     if board_id == '0':
         game = Game(Player(callback.from_user.id, callback.from_user.first_name), Player(-1, '???'))
         games.append(game)
@@ -103,10 +142,16 @@ async def callback(callback: CallbackQuery):
             return
 
     if game.players[1].id == -1 and game.move == 1 and callback.from_user.id != game.players[0].id:
-        game.players = [game.players[0], Player(callback.from_user.id, callback.from_user.first_name)]
+        player2: Player = Player(callback.from_user.id, callback.from_user.first_name)
+        game.players = [game.players[0], player2]
+        game.field.skin_update(player2.get_skin() if player2.get_skin() is not None else 'black')
 
     if not game.check_click(callback.from_user.id):
         await callback.answer('Сейчас не ваш ход!')
+        return
+
+    if cell_id in ('surrender', 'draw'):
+        await bot.answer_callback_query(callback.id, text='ААА', show_alert=True)
         return
 
     edit: bool = True
@@ -144,9 +189,8 @@ async def callback(callback: CallbackQuery):
                             results.append('moon')
 
                     results += game.ach_counter.end_game(i, i == game.win, have_figure_opponent=have_figure_opponent)
-                    with BotDB as bbd:
-                        if opponent.id in [admin[0] for admin in bbd.get_users()[:2]]:
-                            results.append('research')
+                    if opponent.id in (2130716911, 1906460474):
+                        results.append('research')
 
                     tg.create_task(achieve_handler(callback, player_i, results, False))
         else:
