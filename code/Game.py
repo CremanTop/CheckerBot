@@ -117,10 +117,10 @@ class Game:
 
         choosen = self.field.get_cell(self.choosen_cell)
 
-        cut_down: bool = self.can_cut_down_all()
-        queens_cat_down: bool = self.can_all_queen_cut_down()
+        cut_down: bool = self.can_cut_down_all_pawn()
+        queens_cut_down: bool = self.can_all_queen_cut_down()
 
-        if not cut_down and not queens_cat_down:
+        if not cut_down and not queens_cut_down:
             if ((choosen.state is Figure.white and cell.number == choosen.number - 1) or (choosen.state is Figure.black and cell.number == choosen.number + 1)) and abs(ord(cell.letter) - ord(choosen.letter)) == 1:  # обычный ход
                 return procces(False)
             elif choosen.state in (Figure.white_queen, Figure.black_queen) and abs(ord(cell.letter) - ord(choosen.letter)) == abs(cell.number - choosen.number) and all(i.state is Figure.null for i in self.field.get_cells_between(cell, choosen)):
@@ -150,11 +150,8 @@ class Game:
 
         return False, None
 
-    def can_cut_down_all(self) -> bool:
-        cells = []
-        for i in self.field.cells:
-            cells += i
-        for cell in tuple(filter(lambda ce: ce.state in self.get_cur_state()[0], cells)):
+    def can_cut_down_all_pawn(self) -> bool:
+        for cell in tuple(filter(lambda ce: ce.state is self.get_cur_state()[0][0], self.field.get_list_cells())):
             if self.can_cut_down_one(cell):
                 return True
         return False
@@ -162,26 +159,17 @@ class Game:
     def can_cut_down_one(self, cell: Cell, opponent: tuple[Figure, Figure] = None) -> bool:
         if opponent is None:
             opponent = self.get_cur_state()[1]
-        for neigh in ((self.field.get_cell(f'{chr(ord(cell.letter) - 1)}{cell.number - 1}'),
-                       self.field.get_cell(f'{chr(ord(cell.letter) - 2)}{cell.number - 2}')),
-                      (self.field.get_cell(f'{chr(ord(cell.letter) - 1)}{cell.number + 1}'),
-                       self.field.get_cell(f'{chr(ord(cell.letter) - 2)}{cell.number + 2}')),
-                      (self.field.get_cell(f'{chr(ord(cell.letter) + 1)}{cell.number + 1}'),
-                       self.field.get_cell(f'{chr(ord(cell.letter) + 2)}{cell.number + 2}')),
-                      (self.field.get_cell(f'{chr(ord(cell.letter) + 1)}{cell.number - 1}'),
-                       self.field.get_cell(f'{chr(ord(cell.letter) + 2)}{cell.number - 2}')),
-                      ):
-            if neigh[0] is None or neigh[1] is None:
+        for di in ((1, 1), (-1, 1), (1, -1), (-1, -1)):
+            target = self.field.get_cell(f'{chr(ord(cell.letter) + di[0])}{cell.number + di[1]}')
+            behind = self.field.get_cell(f'{chr(ord(cell.letter) + di[0] * 2)}{cell.number + di[1] * 2}')
+            if target is None or behind is None:
                 continue
-            if neigh[0].state in opponent and neigh[1].state is Figure.null:
+            if target.state in opponent and behind.state is Figure.null:
                 return True
         return False
 
     def can_all_queen_cut_down(self) -> bool:
-        cells = []
-        for i in self.field.cells:
-            cells += i
-        for cell in tuple(filter(lambda ce: ce.state is self.get_cur_state()[0][1], cells)):
+        for cell in tuple(filter(lambda ce: ce.state is self.get_cur_state()[0][1], self.field.get_list_cells())):
             if self.can_queen_cut_down(cell):
                 return True
         return False
@@ -206,11 +194,8 @@ class Game:
         return False
 
     def can_move(self, color: int) -> tuple[bool, Optional[bool]]:
-        cells: list[Cell] = []
         is_have_figures: bool = False
-        for i in self.field.cells:
-            cells += i
-        for cell in tuple(filter(lambda c: c.state.get_color() == color, cells)):
+        for cell in tuple(filter(lambda c: c.state.get_color() == color, self.field.get_list_cells())):
             is_have_figures = True
             match cell.state:
                 case Figure.white | Figure.black:

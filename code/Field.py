@@ -92,6 +92,12 @@ class Field:
         else:
             self.load_from_string(setup_string)
 
+    def get_list_cells(self) -> list[Cell]:
+        cells: list[Cell] = []
+        for i in self.cells:
+            cells += i
+        return cells
+
     def get_cell(self, cell_id: str) -> Optional[Cell]:
         let, num = cell_id[0], cell_id[1]
         if num.isdigit():
