@@ -19,7 +19,7 @@ class Figure(Enum):
     choosen_queen = '❤'
     old_move = '📍'
 
-    def get_color(self) -> int:
+    def get_color(self) -> Literal[-1, 0, 1]:
         match self:
             case self.white | self.white_queen:
                 return 0
@@ -28,16 +28,27 @@ class Figure(Enum):
             case _:
                 return -1
 
+    def get_rang(self) -> Literal[0, 1]:
+        match self:
+            case self.white | self.black:
+                return 0
+            case self.white_queen | self.black_queen:
+                return 1
+
     def get_skin_type(self, choosen: bool) -> Literal['pawn', 'queen', 'choosen_pawn', 'choosen_queen']:
-        match self, choosen:
-            case self.white | self.black, False:
+        match self.get_rang(), choosen:
+            case 0, False:
                 return 'pawn'
-            case self.white_queen | self.black_queen, False:
+            case 1, False:
                 return 'queen'
-            case self.white | self.black, True:
+            case 0, True:
                 return 'choosen_pawn'
-            case self.white_queen | self.black_queen, True:
+            case 1, True:
                 return 'choosen_queen'
+
+
+WHITE: Final[tuple[Figure, Figure]] = (Figure.white, Figure.white_queen)
+BLACK: Final[tuple[Figure, Figure]] = (Figure.black, Figure.black_queen)
 
 
 class Cell:

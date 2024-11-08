@@ -6,6 +6,7 @@ from aiogram.types import Message, CallbackQuery, InlineQuery, InlineQueryResult
     InlineKeyboardButton, InlineKeyboardMarkup
 
 from CheckerBot.code.Achievement import get_achieve, Achievement, achievements
+from CheckerBot.code.FieldAssessor import FieldAssessor
 from CheckerBot.code.Player import Player
 from CheckerBot.code.Skins import SkinSet, SKINS
 from Config import Config
@@ -158,6 +159,8 @@ async def callback(callback: CallbackQuery):
     if game.choosen_cell != cell_id:
         result = game.click_handler(cell_id)
         edit = result[0]
+
+        print(round(FieldAssessor(game.field).pos_assesment(0), 2))
 
         match result[1]:
             case str() as mes:

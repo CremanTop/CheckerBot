@@ -1,14 +1,12 @@
-from typing import Final, Optional
+from typing import Final, Optional, Literal
 
 from aiogram.types import InlineKeyboardMarkup
 
 from CheckerBot.code.Achievement import AchGameCounter
 from CheckerBot.code.Config import Config
-from CheckerBot.code.Player import Player
-from Field import Field, Cell, Figure
-
-WHITE: Final[tuple[Figure, Figure]] = (Figure.white, Figure.white_queen)
-BLACK: Final[tuple[Figure, Figure]] = (Figure.black, Figure.black_queen)
+from FieldAssessor import FieldAssessor
+from Player import Player
+from Field import Field, Figure, WHITE, BLACK
 
 config: Final[Config] = Config.get()
 
@@ -30,9 +28,10 @@ class Game:
         self.choosen_cell: Optional[str] = None
         self.old_cell: Optional[str] = None
         self.one_cut: Optional[str] = None
-        self.move: int = 0
+        self.move: Literal[0, 1] = 0
         self.win: int = -1
         self.ach_counter: AchGameCounter = AchGameCounter()
+        self.assessor: FieldAssessor = FieldAssessor(self.field)
 
     def get_message(self) -> str:
         player1: str = f'{self.players[0].name} {self.field.white_skin["pawn"]}'
@@ -88,7 +87,7 @@ class Game:
             if is_cut:
                 self.ach_counter.eaten_counter += 1
 
-            if (not queen and is_cut and self.can_cut_down_one(cell)) or (queen and is_cut and self.can_queen_cut_down(cell)):
+            if is_cut and ((not queen and self.assessor.can_cut_down_one(cell, self.get_cur_state()[1])) or (queen and self.assessor.can_queen_cut_down(cell, self.get_cur_state()[1], self.get_cur_state()[0]))):
                 self.choosen_cell = cell.get_id()
                 self.one_cut = cell.get_id()
             else:
@@ -117,100 +116,39 @@ class Game:
 
         choosen = self.field.get_cell(self.choosen_cell)
 
-        cut_down: bool = self.can_cut_down_all_pawn()
-        queens_cut_down: bool = self.can_all_queen_cut_down()
+        all_moves, cut, _ = self.assessor.get_all_moves(self.move, self.one_cut)
+        if len(tuple(filter(lambda move: move.cfrom == choosen.get_id() and move.cwhere == cell.get_id(), all_moves))) > 0:
+            queen = choosen.state is self.get_cur_state()[0][1]
 
-        if not cut_down and not queens_cut_down:
-            if ((choosen.state is Figure.white and cell.number == choosen.number - 1) or (choosen.state is Figure.black and cell.number == choosen.number + 1)) and abs(ord(cell.letter) - ord(choosen.letter)) == 1:  # обычный ход
-                return procces(False)
-            elif choosen.state in (Figure.white_queen, Figure.black_queen) and abs(ord(cell.letter) - ord(choosen.letter)) == abs(cell.number - choosen.number) and all(i.state is Figure.null for i in self.field.get_cells_between(cell, choosen)):
-                return procces(False)
+            betweens = self.field.get_cells_between(choosen, cell)
+            dop = None
+            for bet in betweens:
+                if bet.state is self.get_cur_state()[1][1]:
+                    dop = 'insight'
+                bet.state = Figure.null
 
+            if dop is None:
+                return procces(cut, queen)
+            else:
+                return procces(cut, queen, dop)
         else:
-            if (self.one_cut is not None and choosen.get_id() == self.one_cut) or self.one_cut is None:
-                if choosen.state is self.get_cur_state()[0][0]:
-                    if abs(cell.number - choosen.number) == 2 and abs(ord(cell.letter) - ord(choosen.letter)) == 2:  # рубка
-                        between = self.field.get_cell(f'{chr((ord(cell.letter) + ord(choosen.letter)) // 2)}{(cell.number + choosen.number) // 2}')
-                        if between.state in self.get_cur_state()[1]:
-                            if between.state is self.get_cur_state()[1][1]:
-                                between.state = Figure.null
-                                return procces(True, False, 'insight')
-                            else:
-                                between.state = Figure.null
-                                return procces(True)
-                elif choosen.state is self.get_cur_state()[0][1]:
-                    cell_between = self.field.get_cells_between(cell, choosen)
-                    count_color = lambda color: tuple(i.state.get_color() for i in cell_between).count(self.get_cur_state()[color][0].get_color())
-                    if abs(ord(cell.letter) - ord(choosen.letter)) == abs(cell.number - choosen.number) and count_color(1) == 1 and count_color(0) == 0:
-                        for i in cell_between:
-                            i.state = Figure.null
-                        return procces(True, queen=True)
-
+            if self.can_cut_down_all_pawn() or self.can_all_queen_cut_down():
                 return False, 'Вы должны рубить!'
-
-        return False, None
+            else:
+                return False, None
 
     def can_cut_down_all_pawn(self) -> bool:
         for cell in tuple(filter(lambda ce: ce.state is self.get_cur_state()[0][0], self.field.get_list_cells())):
-            if self.can_cut_down_one(cell):
-                return True
-        return False
-
-    def can_cut_down_one(self, cell: Cell, opponent: tuple[Figure, Figure] = None) -> bool:
-        if opponent is None:
-            opponent = self.get_cur_state()[1]
-        for di in ((1, 1), (-1, 1), (1, -1), (-1, -1)):
-            target = self.field.get_cell(f'{chr(ord(cell.letter) + di[0])}{cell.number + di[1]}')
-            behind = self.field.get_cell(f'{chr(ord(cell.letter) + di[0] * 2)}{cell.number + di[1] * 2}')
-            if target is None or behind is None:
-                continue
-            if target.state in opponent and behind.state is Figure.null:
+            if self.assessor.can_cut_down_one(cell, self.get_cur_state()[1]):
                 return True
         return False
 
     def can_all_queen_cut_down(self) -> bool:
         for cell in tuple(filter(lambda ce: ce.state is self.get_cur_state()[0][1], self.field.get_list_cells())):
-            if self.can_queen_cut_down(cell):
+            if self.assessor.can_queen_cut_down(cell, self.get_cur_state()[1], self.get_cur_state()[0]):
                 return True
         return False
 
-    def can_queen_cut_down(self, cell: Cell, opponent: tuple[Figure, Figure] = None, team: tuple[Figure, Figure] = None) -> bool:
-        if opponent is None:
-            opponent = self.get_cur_state()[1]
-        if team is None:
-            team = self.get_cur_state()[0]
-        for di in ((1, 1), (-1, 1), (1, -1), (-1, -1)):
-            for i in range(1, 9):
-                target = self.field.get_cell(f'{chr(ord(cell.letter) + di[0] * i)}{cell.number + di[1] * i}')
-                behind = self.field.get_cell(f'{chr(ord(cell.letter) + di[0] * (i + 1))}{cell.number + di[1] * (i + 1)}')
-                if target is None or behind is None:
-                    break
-                if target.state in team or behind.state in team:
-                    break
-                if target.state in opponent and behind.state in opponent:
-                    break
-                if target.state in opponent and behind.state is Figure.null:
-                    return True
-        return False
-
-    def can_move(self, color: int) -> tuple[bool, Optional[bool]]:
-        is_have_figures: bool = False
-        for cell in tuple(filter(lambda c: c.state.get_color() == color, self.field.get_list_cells())):
-            is_have_figures = True
-            match cell.state:
-                case Figure.white | Figure.black:
-                    if self.can_cut_down_one(cell, opponent=WHITE if color == 1 else BLACK):
-                        return True, None
-                    one = self.field.get_cell(f'{chr(ord(cell.letter) - 1)}{cell.number + (1 if color == 1 else -1)}')
-                    two = self.field.get_cell(f'{chr(ord(cell.letter) + 1)}{cell.number + (1 if color == 1 else -1)}')
-                    if (one is not None and one.state is Figure.null) or (two is not None and two.state is Figure.null):
-                        return True, None
-
-                case Figure.white_queen | Figure.black_queen:
-                    if self.can_queen_cut_down(cell, opponent=WHITE if color == 1 else BLACK, team=WHITE if color == 0 else BLACK):
-                        return True, None
-                    for di in ((1, 1), (-1, 1), (1, -1), (-1, -1)):
-                        target = self.field.get_cell(f'{chr(ord(cell.letter) + di[0])}{cell.number + di[1]}')
-                        if target is not None and target.state is Figure.null:
-                            return True, None
-        return False, is_have_figures
+    def can_move(self, color: Literal[0, 1]) -> tuple[bool, Optional[bool]]:
+        moves, _, is_have_figures = self.assessor.get_all_moves(color)
+        return len(moves) > 0, is_have_figures
