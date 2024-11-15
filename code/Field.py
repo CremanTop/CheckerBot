@@ -64,6 +64,15 @@ class Cell:
         return self.get_id()
 
 
+class Move:
+    def __init__(self, cfrom: str, cwhere: str) -> None:
+        self.cfrom: str = cfrom
+        self.cwhere: str = cwhere
+
+    def __repr__(self):
+        return f'{self.cfrom}-{self.cwhere}'
+
+
 class Field:
     def start_setup(self) -> None:
         lines = []
@@ -128,6 +137,20 @@ class Field:
             range(first.number + step2, second.number, step2)
             )
         )
+
+    def turn_without_check(self, move: Move) -> None:  # опасная функция
+        cell1: Cell = self.get_cell(move.cfrom)
+        cell2: Cell = self.get_cell(move.cwhere)
+
+        cell2.state = cell1.state
+        cell1.state = Figure.null
+        for bet in self.get_cells_between(cell1, cell2):
+            bet.state = Figure.null
+
+        if cell2.state is Figure.white and cell2.number == 1:
+            cell2.state = Figure.white_queen
+        elif cell2.state is Figure.black and cell2.number == 8:
+            cell2.state = Figure.black_queen
 
     def get_keyboard(self, choosen_cell: str = None, old_cell: str = None) -> list[list[InlineKeyboardButton]]:
         def get_fig_skin(figure: Figure, choosen: bool) -> str:

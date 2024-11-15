@@ -1,7 +1,7 @@
 from typing import Final, Literal, Optional
 
 from Config import Config
-from Field import Field, Figure, Cell, WHITE, BLACK
+from Field import Field, Figure, Cell, WHITE, BLACK, Move
 
 config: Final[Config] = Config.get()
 BotBd = config.Bot_db
@@ -10,19 +10,13 @@ BotBd = config.Bot_db
 COLORS: Final = (WHITE, BLACK)
 
 
-class Move:
-    def __init__(self, cfrom: str, cwhere: str) -> None:
-        self.cfrom: str = cfrom
-        self.cwhere: str = cwhere
-
-
 class FieldAssessor:
     def __init__(self, field: Field) -> None:
         self.field: Field = field
 
     def pos_assesment(self, color: Literal[0, 1]) -> float:
         PAWN_VALUE: Final[int] = 10
-        QUEEN_VALUE: Final[int] = 40
+        QUEEN_VALUE: Final[int] = 65
         CELL_BONUS: Final[tuple[tuple[float, ...], ...]] = (
             (1.2 , 1.2, 1.2, 1.2 ),
             (1.15, 1.2, 1.2, 1.15),
@@ -81,11 +75,16 @@ class FieldAssessor:
     def can_cut_down_one(self, cell: Cell, opponent: tuple[Figure, Figure]) -> bool:
         return len(self._get_pawn_cuts(cell, opponent)) > 0
 
-    def _get_queen_cuts(self, cell: Cell, opponent: tuple[Figure, Figure] = None, team: tuple[Figure, Figure] = None) -> list[Move]:
+    def _get_queen_cuts(self, cell: Cell, opponent: tuple[Figure, Figure], team: tuple[Figure, Figure], field: Field = None, excluded_di: Optional[tuple[int, int]] = None) -> list[Move]:
         moves: list[Move] = []
+        if field is None:
+            field = self.field
         for di in ((1, 1), (-1, 1), (1, -1), (-1, -1)):
+            if di == excluded_di:
+                continue
+            moves_in_direction: list[Move] = []
             for i in range(1, 9):
-                target = self.field.get_cell(f'{chr(ord(cell.letter) + di[0] * i)}{cell.number + di[1] * i}')
+                target = field.get_cell(f'{chr(ord(cell.letter) + di[0] * i)}{cell.number + di[1] * i}')
                 if target is None:
                     break
                 if target.state in team:  # дальше не идём, через своих прыгать не можем
@@ -93,13 +92,27 @@ class FieldAssessor:
                 if target.state in opponent:  # нашли противника, если за ним окажется пустая, срубим
                     continue
 
-                cells_between: tuple[Cell] = self.field.get_cells_between(cell, target)
+                cells_between: tuple[Cell] = field.get_cells_between(cell, target)
                 count_color = lambda color: tuple(ce.state.get_color() for ce in cells_between).count(color)
                 num_oppo = count_color(opponent[0].get_color())
                 num_team = count_color(team[0].get_color())
 
                 if target.state is Figure.null and num_oppo == 1 and num_team == 0:  # если клетка пустая, а между ней и стартовой только один противник и нет тиммейтов
-                    moves.append(Move(cell.get_id(), target.get_id()))
+                    moves_in_direction.append(Move(cell.get_id(), target.get_id()))
+
+            new_moves_in_direction: list[Move] = []
+            if len(moves_in_direction) > 1:
+                for move in moves_in_direction:  # перебираем клетки, на которые можно встать после срубки
+                    m_cell: Cell = field.get_cell(move.cwhere)
+                    new_field: Field = Field(-1, setup_string=field.get_string())
+                    new_field.turn_without_check(move)
+                    if len(self._get_queen_cuts(m_cell, opponent, team, new_field, (-di[0], -di[1]))) > 0:
+                        new_moves_in_direction.append(move)  # если на новой клетке можно срубить кого-то ещё, то обязательно вставать именно на неё
+            if len(new_moves_in_direction) > 0:
+                moves += new_moves_in_direction
+            else:
+                moves += moves_in_direction
+
         return moves
 
     def _get_queen_moves(self, cell: Cell) -> list[Move]:
@@ -115,24 +128,25 @@ class FieldAssessor:
                     moves.append(Move(cell.get_id(), target.get_id()))
         return moves
 
-    def can_queen_cut_down(self, cell: Cell, opponent: tuple[Figure, Figure] = None, team: tuple[Figure, Figure] = None) -> bool:
-        return len(self._get_queen_cuts(cell, opponent, team)) > 0
+    def can_queen_cut_down(self, cell: Cell, opponent: tuple[Figure, Figure] = None, team: tuple[Figure, Figure] = None, excluded_di: Optional[tuple[int, int]] = None) -> bool:
+        return len(self._get_queen_cuts(cell, opponent, team, excluded_di=excluded_di)) > 0
 
-    def _get_figure_cuts(self, cell: Cell, opponent: tuple[Figure, Figure] = None, team: tuple[Figure, Figure] = None) -> list[Move]:
+    def get_figure_cuts(self, cell: Cell, opponent: tuple[Figure, Figure], team: tuple[Figure, Figure] = None, excluded_di: Optional[tuple[int, int]] = None) -> list[Move]:
         match cell.state.get_rang():
             case 0:  # пешка
                 return self._get_pawn_cuts(cell, opponent)
             case 1:  # дамка
-                return self._get_queen_cuts(cell, opponent, team)
+                return self._get_queen_cuts(cell, opponent, team, excluded_di=excluded_di)
 
-    def _get_figure_moves(self, cell: Cell) -> list[Move]:
+    def get_figure_moves(self, cell: Cell) -> list[Move]:
         match cell.state.get_rang():
             case 0:  # пешка
                 return self._get_pawn_moves(cell, cell.state.get_color())
             case 1:  # дамка
                 return self._get_queen_moves(cell)
 
-    def get_all_moves(self, color: Literal[0, 1], one_cut: Optional[str] = None) -> tuple[list[Move], bool, bool]:
+    #AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaa
+    def get_all_moves(self, color: Literal[0, 1], one_cut: Optional[str] = None, excluded_di: Optional[tuple[int, int]] = None) -> tuple[list[Move], bool, bool]:
         moves: list[Move] = []
 
         is_have_figures: bool = False  # посмотрим, остались ли фигуры
@@ -147,7 +161,7 @@ class FieldAssessor:
         for cell in cells:
             is_have_figures = True
 
-            cut_moves = self._get_figure_cuts(cell, opponent=COLORS[(color + 1) % 2], team=COLORS[color])
+            cut_moves = self.get_figure_cuts(cell, opponent=COLORS[(color + 1) % 2], team=COLORS[color], excluded_di=excluded_di)
             if len(cut_moves) > 0:  # если может рубить
                 if not cut:
                     cut = True  # теперь рубить будут все
@@ -155,6 +169,6 @@ class FieldAssessor:
                 else:
                     moves += cut_moves
             elif not cut:  # рубить не может, но сейчас не обязательно
-                moves += self._get_figure_moves(cell)
-        print(moves)
+                moves += self.get_figure_moves(cell)
+        # print(moves)
         return moves, cut, is_have_figures

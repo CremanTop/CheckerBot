@@ -12,6 +12,9 @@ class Player:
         self.id: Final[int] = id
         self.name: Final[str] = name
 
+    def is_virtual(self) -> bool:
+        return self.id in (-1, 0, 1)
+
     def __get_bin(self) -> str:
         with BotBd as bd:
             num: int = bd.get_skins(self.id)
