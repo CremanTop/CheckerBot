@@ -11,16 +11,16 @@ class Achievement:
 
 
 achievements: Final[tuple[Achievement, ...]] = (
-    Achievement('animal', 'Геноцид', 'Съешьте не менее трёх фигур за ход.', False),  # ok
-    Achievement('moon', 'Троекратное "Ура"', 'Выиграйте три раза.', False),  # okay
-    Achievement('food', 'Званый ужин', 'Съешьте фигуры противника 3 хода подряд.', False),  # ok
-    Achievement('rain', 'Двоевластие', 'Создайте не менее двух дамок за игру.', False),  # ok
+    Achievement('animal', 'Геноцид', 'Съешьте не менее трёх фигур за ход.', False),
+    Achievement('moon', 'Троекратное "Ура"', 'Выиграйте три раза.', False),
+    Achievement('food', 'Званый ужин', 'Съешьте фигуры противника 3 хода подряд.', False),
+    Achievement('rain', 'Двоевластие', 'Создайте не менее двух дамок за игру.', False),
     Achievement('rock', 'Паритет', 'Сыграйте в ничью три раза.', False),
-    Achievement('insight', 'Чем больше шкаф', 'Съешьте дамку пешкой.', False),  # okay
-    Achievement('tool', 'Крестьянская революция', 'Выиграйте, не создавая дамок за игру.', False),  # ok
-    Achievement('key', 'Разделяй и властвуй', 'Выиграйте, не оставив противнику ходов.', False),  # okay
-    Achievement('feet', 'Карьерный рост', 'Создайте дамку не позже десятого хода.', False),  # okay
-    Achievement('research', 'Здравствуй, Нео', 'Сыграйте с создателем.', True),  # okay
+    Achievement('insight', 'Чем больше шкаф', 'Съешьте дамку пешкой.', False),
+    Achievement('tool', 'Крестьянская революция', 'Выиграйте, не создавая дамок за игру.', False),
+    Achievement('key', 'Разделяй и властвуй', 'Выиграйте, не оставив противнику ходов.', False),
+    Achievement('feet', 'Карьерный рост', 'Создайте дамку не позже десятого хода.', False),
+    Achievement('research', 'Здравствуй, Нео', 'Сыграйте с создателем.', True),
 )
 
 

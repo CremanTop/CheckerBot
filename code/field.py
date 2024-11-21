@@ -3,7 +3,7 @@ from typing import Final, Optional, Literal
 
 from aiogram.types import InlineKeyboardButton
 
-from CheckerBot.code.Skins import SkinSet, SKINS
+from CheckerBot.code.skins import SkinSet, SKINS
 
 alp: Final[str] = 'abcdefgh'
 
@@ -152,7 +152,7 @@ class Field:
         elif cell2.state is Figure.black and cell2.number == 8:
             cell2.state = Figure.black_queen
 
-    def get_keyboard(self, choosen_cell: str = None, old_cell: str = None) -> list[list[InlineKeyboardButton]]:
+    def get_keyboard(self, choosen_cell: str = None, old_cell: str = None, win: bool = False) -> list[list[InlineKeyboardButton]]:
         def get_fig_skin(figure: Figure, choosen: bool) -> str:
             skin_set: SkinSet = self.white_skin if figure.get_color() == 0 else self.black_skin
             if figure.get_skin_type(choosen) is None:
@@ -174,7 +174,8 @@ class Field:
                 if i % 2 == 0:
                     u_line.append(button)
             keyboard.append(u_line)
-        keyboard.append([InlineKeyboardButton(text='Сдаться', callback_data=f'{self.id}_surrender'), InlineKeyboardButton(text='Предложить ничью', callback_data=f'{self.id}_draw')])
+        if not win:
+            keyboard.append([InlineKeyboardButton(text='Сдаться', callback_data=f'{self.id}_surrender'), InlineKeyboardButton(text='Ничья', callback_data=f'{self.id}_draw')])
         return keyboard
 
     def get_string(self) -> str:

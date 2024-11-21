@@ -1,7 +1,7 @@
 from typing import Final, Optional
 
-from CheckerBot.code.Achievement import achievements, get_achieve
-from CheckerBot.code.Config import Config
+from CheckerBot.code.achievement import achievements, get_achieve
+from CheckerBot.code.config import Config
 
 config: Final[Config] = Config.get()
 BotBd = config.Bot_db
@@ -37,6 +37,15 @@ class Player:
     def win_increment(self) -> None:
         with BotBd as bd:
             bd.win_increment(self.id)
+
+    def get_draws(self) -> int:
+        with BotBd as bd:
+            draw: int = bd.get_draws(self.id)
+        return draw
+
+    def draw_increment(self) -> None:
+        with BotBd as bd:
+            bd.draw_increment(self.id)
 
     def get_skins_unlocked(self) -> list[str]:
         bin01: str = self.__get_bin()

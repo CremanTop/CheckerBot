@@ -57,6 +57,14 @@ class BotDB:
         wins: int = self.get_wins(user_id) + 1
         self.__cursor.execute("UPDATE `users` SET `win_count` = ? WHERE `id` = ?", (wins, user_id))
 
+    def get_draws(self, user_id: int) -> int:
+        result: Cursor = self.__cursor.execute("SELECT `draw_count` FROM `users` WHERE `id` = ?", (user_id,))
+        return result.fetchone()[0]
+
+    def draw_increment(self, user_id: int) -> None:
+        draws: int = self.get_draws(user_id) + 1
+        self.__cursor.execute("UPDATE `users` SET `draw_count` = ? WHERE `id` = ?", (draws, user_id))
+
     def set_choosen_skin(self, user_id: int, skin: str) -> None:
         self.__cursor.execute("UPDATE `users` SET `choosen_skin` = ? WHERE `id` = ?", (skin, user_id))
 
@@ -73,13 +81,3 @@ class BotDB:
     def get_game(self, game_id: int) -> list[tuple[int, int, int, int, str]]:
         result: Cursor = self.__cursor.execute("SELECT * FROM `games` WHERE `id` = ?", (game_id,))
         return result.fetchone()[0]
-
-    # def get_wins(self, user_id: int) -> int:
-    #     """Достаём колиество побед"""
-    #     result: Cursor = self.cursor.execute("SELECT `num_wins` FROM `users` WHERE `id` = ?", (user_id,))
-    #     return result.fetchone()[0]
-    #
-    # def set_wins(self, user_id: int, wins: int) -> None:
-    #     """Устанавливаем количество побед"""
-    #     self.cursor.execute("UPDATE `users` SET `num_wins` = ? WHERE `id` = ?", (wins, user_id))
-    #     self.conn.commit()

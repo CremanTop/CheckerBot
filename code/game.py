@@ -2,11 +2,11 @@ from typing import Final, Optional, Literal
 
 from aiogram.types import InlineKeyboardMarkup
 
-from CheckerBot.code.Achievement import AchGameCounter
-from CheckerBot.code.Config import Config
-from FieldAssessor import FieldAssessor
-from Player import Player
-from Field import Field, Figure, WHITE, BLACK
+from CheckerBot.code.achievement import AchGameCounter
+from CheckerBot.code.config import Config
+from assessor import FieldAssessor
+from player import Player
+from field import Field, Figure, WHITE, BLACK
 
 config: Final[Config] = Config.get()
 
@@ -17,7 +17,7 @@ class Game:
     counter = 0
 
     def __init__(self, player1: Player, player2: Player):
-        self.id: Final[int] = Game.counter
+        self.id: int = Game.counter
         Game.counter += 1
 
         ws = player1.get_skin() if player1.get_skin() is not None else 'white'
@@ -33,12 +33,16 @@ class Game:
         self.win: int = -1
         self.ach_counter: AchGameCounter = AchGameCounter()
         self.assessor: FieldAssessor = FieldAssessor(self.field)
+        self.is_draw_offered: bool = False
 
-    def get_message(self) -> str:
+    def screen_players(self) -> str:
         player1: str = f'{self.players[0].name} {self.field.white_skin["pawn"]}'
         player2: str = f'{self.players[1].name} {self.field.black_skin["pawn"]}'
-        return f'{player1} vs {player2} \n' \
-               f'Ход: {self.field.white_skin["whose"] if self.move == 0 else self.field.black_skin["whose"]}'
+        return f'{player1} vs {player2}\n'
+
+    def get_message(self) -> str:
+        draw: str = '\nПредложена ничья 🤝' if self.is_draw_offered else ''
+        return self.screen_players() + f'Ход: {self.field.white_skin["whose"] if self.move == 0 else self.field.black_skin["whose"]}{draw}'
 
     def moving(self) -> list[str]:
         result = self.ach_counter.move(self.move)
@@ -53,7 +57,7 @@ class Game:
         return result
 
     def get_board(self) -> InlineKeyboardMarkup:
-        return InlineKeyboardMarkup(inline_keyboard=self.field.get_keyboard(self.choosen_cell, self.old_cell))
+        return InlineKeyboardMarkup(inline_keyboard=self.field.get_keyboard(self.choosen_cell, self.old_cell, self.win != -1))
 
     def check_click(self, player_id: int) -> bool:
         player = next(filter(lambda pl: pl.id == player_id, self.players))
@@ -83,19 +87,21 @@ class Game:
             choosen.state = Figure.null
             self.old_cell = self.choosen_cell
 
+            print(is_cut, self.assessor.get_figure_cuts(cell, self.get_cur_state()[1], self.get_cur_state()[0], self.excluded_queen_direction), self.excluded_queen_direction)
+
             achieves = [*dopresult]
 
             if is_cut:
                 self.ach_counter.eaten_counter += 1
 
+            if cell.state.get_rang() == 1:
+                di1 = 1 if ord(choosen.letter) > ord(cell.letter) else -1
+                di2 = 1 if choosen.number > cell.number else -1
+                self.excluded_queen_direction = (di1, di2)
+
             if is_cut and len(self.assessor.get_figure_cuts(cell, self.get_cur_state()[1], self.get_cur_state()[0], self.excluded_queen_direction)) != 0:
                 self.choosen_cell = cell.get_id()
                 self.one_cut = cell.get_id()
-
-                if cell.state.get_rang() == 1:
-                    di1 = 1 if ord(choosen.letter) > ord(cell.letter) else -1
-                    di2 = 1 if choosen.number > cell.number else -1
-                    self.excluded_queen_direction = (di1, di2)
 
             else:
                 self.choosen_cell = None

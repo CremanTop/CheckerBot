@@ -1,7 +1,7 @@
 from typing import Final, Literal, Optional
 
-from Config import Config
-from Field import Field, Figure, Cell, WHITE, BLACK, Move
+from config import Config
+from field import Field, Figure, Cell, WHITE, BLACK, Move
 
 config: Final[Config] = Config.get()
 BotBd = config.Bot_db
@@ -145,7 +145,6 @@ class FieldAssessor:
             case 1:  # дамка
                 return self._get_queen_moves(cell)
 
-    #AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaa
     def get_all_moves(self, color: Literal[0, 1], one_cut: Optional[str] = None, excluded_di: Optional[tuple[int, int]] = None) -> tuple[list[Move], bool, bool]:
         moves: list[Move] = []
 
