@@ -1,83 +1,100 @@
-import sqlite3
-from sqlite3 import Connection, Cursor
-from typing import Optional
+import os.path
+from typing import Final, NoReturn, Self, Any, Type, Optional
+
+from sqlalchemy import create_engine, Engine, Column, Integer, String
+from sqlalchemy.exc import NoResultFound
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import Session
+
+Base = declarative_base()
+
+
+class User(Base):
+    __tablename__: Final[str] = 'users'
+
+    id = Column(Integer, primary_key=True)
+    skins_unlocked = Column(Integer, default=0)
+    choosen_skin = Column(String)
+    win_count = Column(Integer, default=0)
+    draw_count = Column(Integer, default=0)
+
+    def __init__(self, user_id: int) -> NoReturn:
+        self.id = user_id
+
+    def __repr__(self) -> str:
+        return f'Пользователь: [ID: {self.id}, Побед: {self.win_count}, Ничей: {self.draw_count}, Скин: {self.choosen_skin}, Открытые скины: {self.skins_unlocked}]'
 
 
 class BotDB:
     """ОБЯЗАТЕЛЬНО ИСПОЛЬЗОВАТЬ ЧЕРЕЗ WITH!!!"""
     def __init__(self, db_file: str) -> None:
-        self.db_file = db_file
+        self.__engine: Engine = create_engine(f'sqlite:///{db_file}')
 
-    def __enter__(self):
-        """Открываем соединение"""
-        self.__conn: Connection = sqlite3.connect(self.db_file)
-        self.__cursor: Cursor = self.__conn.cursor()
+        if not os.path.exists(db_file):
+            self.create_db()
+
+    def create_db(self) -> None:
+        Base.metadata.create_all(self.__engine)
+
+    def __enter__(self) -> Self:
+        self.__session: Session = Session(bind=self.__engine)
         return self
 
-    def __exit__(self, etype, evalue, traceback):
-        """Закрываем соединение"""
-        self.__conn.commit()
-        self.__conn.close()
+    def __exit__(self, type_: Any, value: Any, traceback: Any) -> None:
+        self.__session.commit()
+        self.__session.close()
 
-    def get_users(self) -> list[tuple[int, int]]:
-        result: Cursor = self.__cursor.execute("SELECT * FROM `users`")
-        return result.fetchall()
+    def add_user(self, user_id: int) -> None:
+        self.__session.add(User(user_id))
 
-    def user_exists(self, user_id: int) -> bool:
-        """Проверяем, есть ли юзер в базе"""
-        result: Cursor = self.__cursor.execute("SELECT `id` FROM `users` WHERE `id` = ?", (user_id,))
-        return bool(len(result.fetchall()))
-
-    def add_user(self, user_id: int, skins_num: int) -> None:
-        """Добавляем юзера в базу"""
-        self.__cursor.execute("INSERT INTO `users` (`id`, `skins_unlocked`) VALUES (?, ?)", (user_id, skins_num))
+    def __get_user(self, user_id: int) -> Optional[User]:
+        try:
+            return self.__session.query(User).filter_by(id=user_id).one()
+        except NoResultFound:
+            return None
 
     def del_user(self, user_id: int) -> None:
-        self.__cursor.execute("DELETE FROM `users` WHERE `id` = ?", (user_id,))
+        self.__session.delete(self.__get_user(user_id))
 
+    def user_exists(self, user_id: int) -> bool:
+        return self.__get_user(user_id) is not None
+
+    def get_users(self) -> list[Type[User]]:
+        return self.__session.query(User).all()
+
+    @staticmethod
+    def attrubyte_handler(fun):
+        def handler(*args, **kwargs):
+            try:
+                return fun(*args, **kwargs)
+            except AttributeError:
+                return None
+        return handler
+
+    @attrubyte_handler
     def get_skins(self, user_id: int) -> int:
-        result: Cursor = self.__cursor.execute("SELECT `skins_unlocked` FROM `users` WHERE `id` = ?", (user_id,))
-        return result.fetchone()[0]
+        return self.__get_user(user_id).skins_unlocked
 
-    def set_skins(self, user_is: int, skins: int) -> None:
-        self.__cursor.execute("UPDATE `users` SET `skins_unlocked` = ? WHERE `id` = ?", (skins, user_is))
-
+    @attrubyte_handler
     def get_choosen_skin(self, user_id: int) -> Optional[str]:
-        result = self.__cursor.execute("SELECT `choosen_skin` FROM `users` WHERE `id` = ?", (user_id,))
-        result = result.fetchone()
-        if result is None:
-            return None
-        return result[0]
+        return self.__get_user(user_id).choosen_skin
 
+    @attrubyte_handler
     def get_wins(self, user_id: int) -> int:
-        result: Cursor = self.__cursor.execute("SELECT `win_count` FROM `users` WHERE `id` = ?", (user_id,))
-        return result.fetchone()[0]
+        return self.__get_user(user_id).win_count
+
+    @attrubyte_handler
+    def get_draws(self, user_id: int) -> int:
+        return self.__get_user(user_id).draw_count
+
+    def set_skins(self, user_id: int, skins: int) -> None:
+        self.__get_user(user_id).skins_unlocked = skins
 
     def win_increment(self, user_id: int) -> None:
-        wins: int = self.get_wins(user_id) + 1
-        self.__cursor.execute("UPDATE `users` SET `win_count` = ? WHERE `id` = ?", (wins, user_id))
-
-    def get_draws(self, user_id: int) -> int:
-        result: Cursor = self.__cursor.execute("SELECT `draw_count` FROM `users` WHERE `id` = ?", (user_id,))
-        return result.fetchone()[0]
+        self.__get_user(user_id).win_count += 1
 
     def draw_increment(self, user_id: int) -> None:
-        draws: int = self.get_draws(user_id) + 1
-        self.__cursor.execute("UPDATE `users` SET `draw_count` = ? WHERE `id` = ?", (draws, user_id))
+        self.__get_user(user_id).draw_count += 1
 
     def set_choosen_skin(self, user_id: int, skin: str) -> None:
-        self.__cursor.execute("UPDATE `users` SET `choosen_skin` = ? WHERE `id` = ?", (skin, user_id))
-
-    def add_game(self, game_id: int, player1: int, player2: int, move: int, figures: str) -> None:
-        self.__cursor.execute("REPLACE INTO `games` (`id`, `player1`, `player2`, `move`, `figures`) VALUES (?, ?, ?, ?, ?)", (game_id, player1, player2, move, figures))
-
-    def del_game(self, game_id: int) -> None:
-        self.__cursor.execute("DELETE FROM `games` WHERE `id` = ?", (game_id,))
-
-    def game_exists(self, game_id: int) -> bool:
-        result: Cursor = self.__cursor.execute("SELECT `id` FROM `games` WHERE `id` = ?", (game_id,))
-        return bool(len(result.fetchall()))
-
-    def get_game(self, game_id: int) -> list[tuple[int, int, int, int, str]]:
-        result: Cursor = self.__cursor.execute("SELECT * FROM `games` WHERE `id` = ?", (game_id,))
-        return result.fetchone()[0]
+        self.__get_user(user_id).choosen_skin = skin
