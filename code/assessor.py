@@ -1,10 +1,5 @@
 from typing import Final, Literal, Optional
-
-from config import Config
 from field import Field, Figure, Cell, WHITE, BLACK, Move
-
-config: Final[Config] = Config.get()
-BotBd = config.Bot_db
 
 
 COLORS: Final = (WHITE, BLACK)

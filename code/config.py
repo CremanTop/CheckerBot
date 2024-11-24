@@ -19,8 +19,9 @@ class Config:
         env: Final[Env] = Env()
         env.read_env()
 
-        self.BOT_TOKEN: Final[str] = '7398081871:AAGoPrSDjYFRv3pjE9WetNqnyzXFb-AfH8A' #env('BOT_TOKEN')
-        #self.password: Final[str] = env('DEFAULT_PASSWORD')
+        self.BOT_TOKEN: Final[str] = env('BOT_TOKEN')
+        self.admin1: Final[str] = env('ADMIN1')
+        self.admin2: Final[str] = env('ADMIN2')
 
         self.bot: Final[Bot] = Bot(self.BOT_TOKEN)
         self.storage: MemoryStorage = MemoryStorage()

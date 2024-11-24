@@ -3,20 +3,15 @@ from typing import Final, Optional, Literal
 from aiogram.types import InlineKeyboardMarkup
 
 from CheckerBot.code.achievement import AchGameCounter
-from CheckerBot.code.config import Config
 from assessor import FieldAssessor
-from player import Player
 from field import Field, Figure, WHITE, BLACK
-
-config: Final[Config] = Config.get()
-
-BotBd = config.Bot_db
+from player import Player
 
 
 class Game:
     counter = 0
 
-    def __init__(self, player1: Player, player2: Player):
+    def __init__(self, player1: Player, player2: Player, bot_color: Literal[0, 1] = -1):
         self.id: int = Game.counter
         Game.counter += 1
 
@@ -34,6 +29,7 @@ class Game:
         self.ach_counter: AchGameCounter = AchGameCounter()
         self.assessor: FieldAssessor = FieldAssessor(self.field)
         self.is_draw_offered: bool = False
+        self.with_bot: Literal[-1, 0, 1] = bot_color  # -1 - игра с игроком, 0 - бот за белых, 1 - бот за чёрных
 
     def screen_players(self) -> str:
         player1: str = f'{self.players[0].name} {self.field.white_skin["pawn"]}'
@@ -50,9 +46,6 @@ class Game:
 
         if not self.can_move(self.move)[0]:
             self.win = (self.move + 1) % 2
-            with BotBd as bd:
-                if bd.game_exists(self.id):
-                    bd.del_game(self.id)
 
         return result
 
@@ -86,8 +79,6 @@ class Game:
             cell.state = choosen.state
             choosen.state = Figure.null
             self.old_cell = self.choosen_cell
-
-            print(is_cut, self.assessor.get_figure_cuts(cell, self.get_cur_state()[1], self.get_cur_state()[0], self.excluded_queen_direction), self.excluded_queen_direction)
 
             achieves = [*dopresult]
 

@@ -1,12 +1,14 @@
 import asyncio
 from typing import Final, Optional
 
+from aiogram.enums import ParseMode
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery, InlineQuery, InlineQueryResultArticle, InputTextMessageContent, \
     InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.utils.markdown import italic
 
 from CheckerBot.code.achievement import get_achieve, Achievement, achievements
-from CheckerBot.code.assessor import FieldAssessor
 from CheckerBot.code.player import Player
 from CheckerBot.code.skins import SkinSet, SKINS
 from CheckerBot.code.virtualplayer import VirtualPlayer
@@ -21,6 +23,9 @@ BotDB = config.Bot_db
 
 games: list[Game] = []
 game0 = Game(Player(0, '???'), Player(1, '???'))
+game1 = Game(Player(0, '???'), Player(1, 'Бот'), 1)
+
+color_keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text='Я сыграю за белых⚪', callback_data='white')], [InlineKeyboardButton(text='Я сыграю за чёрных⚫', callback_data='black')]])
 
 
 async def get_game(callback, game_id: int) -> Optional[Game]:
@@ -44,7 +49,7 @@ def get_achievement_message(achieves: list[str]) -> str:
 def player_init(user_id: int):
     with BotDB as db:
         if not db.user_exists(user_id):
-            db.add_user(user_id, 0)
+            db.add_user(user_id)
 
 
 async def achieve_handler(callback: CallbackQuery, player: Player, achi_s: list[str], only: bool) -> None:
@@ -62,11 +67,14 @@ async def achieve_handler(callback: CallbackQuery, player: Player, achi_s: list[
     await bot.send_message(player.id, text=text)
 
 
-@dp.message(Command(commands=['start']))
+@dp.message(Command(commands=['start', 'menu']))
 async def start_command(message: Message):
     player_init(message.from_user.id)
-    print(message.from_user.id)
-    await message.answer(game0.get_message(), reply_markup=game0.get_board())
+    button1 = InlineKeyboardButton(text='Играть с другом 🤝', switch_inline_query='play')
+    button2 = InlineKeyboardButton(text='Играть с ботом 🤖', callback_data='play')
+    await message.answer(text=f'С помощью данного бота вы сможете сыграть в шашки!\nДля этого просто напишите {italic("@Checkers4215bot play")} в личные сообщения тому, с кем хотите сыграть, либо в группу! Если хотите сыграть с ботом, то отправьте команду в этот чат. Вы также можете воспользоваться для этого кнопками ниже!\n\nЕсли вы играете с человеком, то первый, кто взаимодействует с доской, вступает в игру за белых, а второй - за чёрных. Скины шашек отобразятся тогда, когда игрок вступит в игру. Если вы играете с ботом, то можете выбрать, за кого играть!',
+                         reply_markup=InlineKeyboardMarkup(inline_keyboard=[[button1], [button2]]),
+                         parse_mode=ParseMode.MARKDOWN)
 
 
 @dp.message(Command(commands=['skin']))
@@ -110,20 +118,40 @@ async def skin_command(message: Message):
 @dp.inline_query()
 async def inline(callback: InlineQuery):
     player_init(callback.from_user.id)
-    await callback.answer([
-        InlineQueryResultArticle(id='1',
-                                 title='Доска игровая будет',
-                                 input_message_content=InputTextMessageContent(message_text=game0.get_message()),
-                                 reply_markup=game0.get_board())
-    ])
+    if callback.chat_type != 'sender':
+        await callback.answer([
+            InlineQueryResultArticle(id='1',
+                                     title='Отправить игровую доску',
+                                     description='Сыграйте в шашки! (Переходите в чат с ботом, чтобы узнать про скины и прочее)',
+                                     thumb_url='https://s.iimg.su/s/24/0Mr4V1Oq0I1IHvdVDpmNpBlbaHMNRAHLLLmbufcb.jpg', thumb_width=539, thumb_height=380,
+                                     input_message_content=InputTextMessageContent(message_text=game0.get_message()),
+                                     reply_markup=game0.get_board())
+        ])
+    else:
+        await callback.answer([
+            InlineQueryResultArticle(id='2',
+                                     title='Отправить игровую доску',
+                                     description='Сыграйте в шашки против алгоритма!',
+                                     thumb_url='https://s.iimg.su/s/24/0Mr4V1Oq0I1IHvdVDpmNpBlbaHMNRAHLLLmbufcb.jpg',
+                                     thumb_width=539, thumb_height=380,
+                                     input_message_content=InputTextMessageContent(message_text='Бот уже готов играть!\nПросто выберите цвет.'),
+                                     reply_markup=color_keyboard)
+        ])
 
 
-async def move_reaction(callback: CallbackQuery, edit: bool, game: Game):
+def get_kwargs(callback: CallbackQuery) -> dict:
     if callback.inline_message_id is not None:
         kwargs = {'inline_message_id': callback.inline_message_id}
     elif callback.message.message_id is not None:
         kwargs = {'message_id': callback.message.message_id,
                   'chat_id': callback.message.chat.id}
+    else:
+        raise Exception('Твой колбек ни то, ни это')
+    return kwargs
+
+
+async def move_reaction(callback: CallbackQuery, edit: bool, game: Game):
+    kwargs = get_kwargs(callback)
 
     if edit:
         if game.win in (0, 1):
@@ -145,7 +173,7 @@ async def move_reaction(callback: CallbackQuery, edit: bool, game: Game):
                                 results.append('moon')
 
                     results += game.ach_counter.end_game(i, i == game.win, have_figure_opponent=have_figure_opponent)
-                    if opponent.id in (2130716911, 1906460474):
+                    if opponent.id in (config.admin1, config.admin2):
                         results.append('research')
 
                     if not player_i.is_virtual():
@@ -165,14 +193,16 @@ async def move_reaction(callback: CallbackQuery, edit: bool, game: Game):
             games.remove(game)
 
         else:
-            await bot.edit_message_text(text=game.get_message(), reply_markup=game.get_board(), **kwargs)
+            try:
+                await bot.edit_message_text(text=game.get_message(), reply_markup=game.get_board(), **kwargs)
+            except TelegramBadRequest:
+                print('Сообщение не изменилось')
 
-            while game.move == 1:
-                vp = VirtualPlayer(1)
-                vp.excluded_di = game.excluded_queen_direction
-                move, cut = await vp.get_strongest_move(game.field, one_cut=game.one_cut)
+            while game.move == game.with_bot:
+                vp = VirtualPlayer(game.with_bot, game.excluded_queen_direction)
+                move, _ = await vp.get_strongest_move(game.field, one_cut=game.one_cut)
                 game.choosen_cell = move.cfrom
-                await asyncio.sleep(0.4)
+                await asyncio.sleep(0.5)
                 game.move_attempt(move.cwhere)
                 await bot.edit_message_text(text=game.get_message(), reply_markup=game.get_board(), **kwargs)
                 if game.win != -1:
@@ -185,8 +215,24 @@ async def move_reaction(callback: CallbackQuery, edit: bool, game: Game):
 async def callback(callback: CallbackQuery):
     player_init(callback.from_user.id)
 
+    if callback.data == 'play':
+        await bot.send_message(callback.message.chat.id, text='Бот уже готов играть!\nПросто выберите цвет.', reply_markup=color_keyboard)
+        await callback.answer()
+        return
+
     if callback.data == 'null':
         await callback.answer()
+        return
+
+    if callback.data == 'white':
+        await bot.edit_message_text(text=game1.get_message(), reply_markup=game1.get_board(), **get_kwargs(callback))
+        return
+
+    if callback.data == 'black':
+        game = Game(Player(0, 'Бот'), Player(-1, '???'), 0)
+        games.append(game)
+        await bot.edit_message_text(text=game.get_message(), reply_markup=game.get_board(), **get_kwargs(callback))
+        await move_reaction(callback, True, game)
         return
 
     board_id = callback.data[:callback.data.index('_')]
@@ -199,8 +245,9 @@ async def callback(callback: CallbackQuery):
 
     if board_id == '0':
         game = Game(Player(callback.from_user.id, callback.from_user.first_name), Player(-1, '???'))
-        # game.field.load_from_string('ww0w,w0ww,0ww0,b000,00w0,b00b,bb0b,00bb')
-        # game.field.load_from_string('0000,0000,b000,0W00,0b00,0000,0000,0000')
+        games.append(game)
+    elif board_id == '2':
+        game = Game(Player(callback.from_user.id, callback.from_user.first_name), Player(0, 'Бот'), 1)
         games.append(game)
     else:
         game = await get_game(callback, int(board_id))
@@ -246,8 +293,6 @@ async def callback(callback: CallbackQuery):
         result = game.click_handler(cell_id)
         edit = result[0]
 
-        print(round(FieldAssessor(game.field).pos_assesment(0), 2))
-
         match result[1]:
             case str() as mes:
                 await callback.answer(mes)
@@ -264,6 +309,5 @@ async def callback(callback: CallbackQuery):
 
 
 if __name__ == '__main__':
-    # dp.middleware.setup(ThrottlingMiddleware(1))
     print('Бот запущен')
     dp.run_polling(bot, skip_updates=False)

@@ -1,22 +1,17 @@
 import random
-from typing import Literal, Final, Optional
+from typing import Literal, Optional
 
 from assessor import FieldAssessor, COLORS
-from config import Config
 from field import Field, Move
-
-config: Final[Config] = Config.get()
-BotBd = config.Bot_db
-bot = config.bot
 
 
 class VirtualPlayer:
-    def __init__(self, color: Literal[0, 1]) -> None:
+    def __init__(self, color: Literal[0, 1], excluded_di: tuple[int, int]) -> None:
         self.color: Literal[0, 1] = color
         self._start_assess: float = -1_000_000
         self._actual_best_move: Optional[tuple[Move, float]] = None
         self._actual_moves: dict[Move, float] = {}
-        self.excluded_di = None
+        self.excluded_di = excluded_di
 
     async def get_strongest_move(self, field: Field, depth: int = 4, one_cut: str = None) -> tuple[Move, bool]:
         assessor: FieldAssessor = FieldAssessor(field)
@@ -29,17 +24,13 @@ class VirtualPlayer:
         self._actual_moves = {move: -1_000_000 for move in all_moves}
 
         for move, new_field in self.get_final_moves(all_moves, self.color, cut, field):
-            self.b(move, new_field, (self.color + 1) % 2, depth=depth)  # ищем сильнейший ход
-
-        for move in self._actual_moves:
-            print(move, self._actual_moves[move])
-        print(''.ljust(10, '='))
+            self.iterative_assess(move, new_field, (self.color + 1) % 2, depth=depth)  # ищем сильнейший ход
 
         if len(set(self._actual_moves.values())) == 1:
-            return random.choice(self._actual_moves), cut
+            return random.choice(list(self._actual_moves.keys())), cut
         return max(self._actual_moves, key=self._actual_moves.get), cut
 
-    def b(self, last_move: Move, field: Field, color: Literal[0, 1], depth: int, init_move: Move = None):
+    def iterative_assess(self, last_move: Move, field: Field, color: Literal[0, 1], depth: int, init_move: Move = None):
         if depth == 0:
             return
         assessor: FieldAssessor = FieldAssessor(field)
@@ -59,7 +50,7 @@ class VirtualPlayer:
                 return  # слишком плохая позиция, даже не считаем её
 
             for move, new_field in sorted(self.get_final_moves(all_moves, color, cut, field), key=lambda t: FieldAssessor(t[1]).pos_assesment(color), reverse=True)[:2]:
-                self.b(move, new_field, (color + 1) % 2, depth-1, start_move)
+                self.iterative_assess(move, new_field, (color + 1) % 2, depth - 1, start_move)
 
         else:
             if len(all_moves) == 0:
@@ -67,7 +58,7 @@ class VirtualPlayer:
                 return
 
             for move, new_field in self.get_final_moves(all_moves, color, cut, field):
-                self.b(move, new_field, (color + 1) % 2, depth - 1, start_move)
+                self.iterative_assess(move, new_field, (color + 1) % 2, depth - 1, start_move)
 
     def get_final_moves(self, moves: list[Move], color: int, cut: bool, field: Field, init_move: Move = None) -> list[tuple[Move, Field]]:
         result: list[tuple[Move, Field]] = []
