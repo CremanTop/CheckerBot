@@ -1,7 +1,7 @@
 from typing import Final, Optional
 
-from CheckerBot.code.achievement import achievements, get_achieve
-from CheckerBot.code.config import Config
+from achievement import achievements, get_achieve
+from config import Config
 
 config: Final[Config] = Config.get()
 BotBd = config.Bot_db

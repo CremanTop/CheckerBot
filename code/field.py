@@ -3,7 +3,7 @@ from typing import Final, Optional, Literal
 
 from aiogram.types import InlineKeyboardButton
 
-from CheckerBot.code.skins import SkinSet, SKINS
+from skins import SkinSet, SKINS
 
 alp: Final[str] = 'abcdefgh'
 

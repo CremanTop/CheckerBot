@@ -8,11 +8,11 @@ from aiogram.types import Message, CallbackQuery, InlineQuery, InlineQueryResult
     InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.markdown import italic
 
-from CheckerBot.code.achievement import get_achieve, Achievement, achievements
-from CheckerBot.code.player import Player
-from CheckerBot.code.skins import SkinSet, SKINS
-from CheckerBot.code.virtualplayer import VirtualPlayer
-from config import Config
+from achievement import get_achieve, Achievement, achievements
+from player import Player
+from skins import SkinSet, SKINS
+from virtualplayer import VirtualPlayer
+from config import Config, Logger
 from game import Game
 
 config: Final[Config] = Config.get()
@@ -20,6 +20,7 @@ config: Final[Config] = Config.get()
 bot = config.bot
 dp = config.dp
 BotDB = config.Bot_db
+logger = Logger(True, 'Общий')
 
 games: list[Game] = []
 game0 = Game(Player(0, '???'), Player(1, '???'))
@@ -62,6 +63,8 @@ async def achieve_handler(callback: CallbackQuery, player: Player, achi_s: list[
     for res in achi_s:
         player.achieve_complete(res)
 
+    logger.info(f'Игрок {player.name} ({player.id}) получил достижение(-я): {", ".join(achi_s)}.')
+
     if only:
         await callback.answer(text)
     await bot.send_message(player.id, text=text)
@@ -96,6 +99,9 @@ async def skin_command(message: Message):
 
         if ach.id == 'moon':
             string += f' ({player_this.get_wins()}/3)'
+
+        if ach.id == 'rock':
+            string += f' ({player_this.get_draws()}/3)'
 
         string += f' - {lock}'
         result.append(string)
@@ -146,6 +152,7 @@ def get_kwargs(callback: CallbackQuery) -> dict:
         kwargs = {'message_id': callback.message.message_id,
                   'chat_id': callback.message.chat.id}
     else:
+        logger.error('Ошибка колбека')
         raise Exception('Твой колбек ни то, ни это')
     return kwargs
 
@@ -155,6 +162,7 @@ async def move_reaction(callback: CallbackQuery, edit: bool, game: Game):
 
     if edit:
         if game.win in (0, 1):
+            game.logger.info(f'Игра завершена, победа {game.win}.')
             game.id = -1
             await bot.edit_message_text(text=f'{game.screen_players()}Победа {game.field.white_skin["whose"] if game.win == 0 else game.field.black_skin["whose"]}!', reply_markup=game.get_board(), **kwargs)
 
@@ -181,6 +189,7 @@ async def move_reaction(callback: CallbackQuery, edit: bool, game: Game):
             games.remove(game)
 
         elif game.win == 2:
+            game.logger.info(f'Игра завершена вничью.')
             game.id = -1
             async with asyncio.TaskGroup() as tg:
                 for player in game.players:
@@ -196,7 +205,7 @@ async def move_reaction(callback: CallbackQuery, edit: bool, game: Game):
             try:
                 await bot.edit_message_text(text=game.get_message(), reply_markup=game.get_board(), **kwargs)
             except TelegramBadRequest:
-                print('Сообщение не изменилось')
+                game.logger.error('Сообщение не изменилось.')
 
             while game.move == game.with_bot:
                 vp = VirtualPlayer(game.with_bot, game.excluded_queen_direction)
@@ -245,9 +254,11 @@ async def callback(callback: CallbackQuery):
 
     if board_id == '0':
         game = Game(Player(callback.from_user.id, callback.from_user.first_name), Player(-1, '???'))
+        game.logger.info(f'Игрок {callback.from_user.first_name} ({callback.from_user.id}) присоединился к игре.')
         games.append(game)
-    elif board_id == '2':
+    elif board_id == '1':
         game = Game(Player(callback.from_user.id, callback.from_user.first_name), Player(0, 'Бот'), 1)
+        game.logger.info(f'Игрок {callback.from_user.first_name} ({callback.from_user.id}) присоединился к игре.')
         games.append(game)
     else:
         game = await get_game(callback, int(board_id))
@@ -258,6 +269,7 @@ async def callback(callback: CallbackQuery):
         player2: Player = Player(callback.from_user.id, callback.from_user.first_name)
         game.players = [game.players[0], player2]
         game.field.skin_update(player2.get_skin() if player2.get_skin() is not None else 'black')
+        game.logger.info(f'Игрок {callback.from_user.first_name} ({callback.from_user.id}) присоединился к игре.')
 
     if not game.check_click(callback.from_user.id):
         if cell_id == 'draw':  # предлагать ничью можно только не в свой ход
@@ -265,6 +277,7 @@ async def callback(callback: CallbackQuery):
                 await callback.answer('Нельзя предложить ничью боту.')
             else:
                 game.is_draw_offered = not game.is_draw_offered
+                game.logger.info('Предложена ничья.')
                 await move_reaction(callback, True, game)
         else:
             await callback.answer('Сейчас не ваш ход!')
@@ -274,6 +287,7 @@ async def callback(callback: CallbackQuery):
         if not game.is_draw_offered:
             await bot.answer_callback_query(callback.id, text='Отправить предложение ничьи можно только не в свой ход.', show_alert=True)
         else:
+            game.logger.info('Ничья принята.')
             game.win = 2
             await move_reaction(callback, True, game)
         return
@@ -282,6 +296,7 @@ async def callback(callback: CallbackQuery):
 
     if cell_id == 'surrender':
         game.win = (game.players.index(player) + 1) % 2
+        game.logger.info(f'Игрок {callback.from_user.first_name} ({callback.from_user.id}) сдался.')
         await move_reaction(callback, True, game)
         return
 
@@ -309,5 +324,5 @@ async def callback(callback: CallbackQuery):
 
 
 if __name__ == '__main__':
-    print('Бот запущен')
+    Logger(True, 'Общий').info('Бот запущен.')
     dp.run_polling(bot, skip_updates=False)

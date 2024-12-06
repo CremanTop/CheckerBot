@@ -20,8 +20,8 @@ class Config:
         env.read_env()
 
         self.BOT_TOKEN: Final[str] = env('BOT_TOKEN')
-        self.admin1: Final[str] = env('ADMIN1')
-        self.admin2: Final[str] = env('ADMIN2')
+        self.admin1: Final[int] = env.int('ADMIN1')
+        self.admin2: Final[int] = env.int('ADMIN2')
 
         self.bot: Final[Bot] = Bot(self.BOT_TOKEN)
         self.storage: MemoryStorage = MemoryStorage()
@@ -71,7 +71,7 @@ class Filter:
                 self.sort()
             return
 
-        with open('files/logs.txt', mode='r', encoding='utf8') as file:
+        with open('../files/logs.txt', mode='r', encoding='utf8') as file:
             self.list: list[str] = [string.strip() for string in file]
 
     def sort(self) -> None:
@@ -169,7 +169,7 @@ class Logger:
         print(f'{form}{message}')
 
         if self.writing:
-            with open('files/logs.txt', mode='a', encoding='utf8') as file:
+            with open('../files/logs.txt', mode='a', encoding='utf8') as file:
                 file.write(message + '\n')
 
     def info(self, text: str) -> None:

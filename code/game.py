@@ -2,7 +2,8 @@ from typing import Final, Optional, Literal
 
 from aiogram.types import InlineKeyboardMarkup
 
-from CheckerBot.code.achievement import AchGameCounter
+from achievement import AchGameCounter
+from config import Logger
 from assessor import FieldAssessor
 from field import Field, Figure, WHITE, BLACK
 from player import Player
@@ -28,8 +29,11 @@ class Game:
         self.win: int = -1
         self.ach_counter: AchGameCounter = AchGameCounter()
         self.assessor: FieldAssessor = FieldAssessor(self.field)
+        self.logger: Logger = Logger(True, self.id)
         self.is_draw_offered: bool = False
         self.with_bot: Literal[-1, 0, 1] = bot_color  # -1 - игра с игроком, 0 - бот за белых, 1 - бот за чёрных
+
+        self.logger.info('Игра создана.')
 
     def screen_players(self) -> str:
         player1: str = f'{self.players[0].name} {self.field.white_skin["pawn"]}'
