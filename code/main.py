@@ -111,6 +111,7 @@ async def skin_command(message: Message):
             buttons.append([InlineKeyboardButton(text=f'{i}) {skin["name"]}', callback_data=f'skin_{ach.id}')])
 
         i += 1
+    buttons.append([InlineKeyboardButton(text='Сбросить скин', callback_data='skin_none')])
     rejoin = '\n'.join(result)
 
     await message.answer(text=f'Вы можете получать новые скины, выполняя достижения! \n\nСписок достижений:\n{rejoin}', reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
@@ -248,6 +249,8 @@ async def callback(callback: CallbackQuery):
     cell_id = callback.data[callback.data.index('_') + 1:]
 
     if board_id == 'skin':
+        if cell_id == 'none':
+            cell_id = None
         Player(callback.from_user.id, callback.from_user.first_name).set_skin(cell_id)
         await bot.answer_callback_query(callback.id, text=f'Вы выбрали набор скинов\n{SKINS[cell_id]["name"]}', show_alert=True)
         return
